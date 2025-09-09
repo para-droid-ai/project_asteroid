@@ -1,6 +1,6 @@
 # Project Asteroid
 
-![Project Asteroid Gameplay](https://storage.googleapis.com/project-asteroid-public/project-asteroid-screenshot.png)
+![Project Asteroid Gameplay](media/newgame.png)
 
 A colony simulation game where you manage a group of survivors on a desolate asteroid. Guide your autonomous colonists by designating tasks like mining and building to ensure their survival and prosperity against the harshness of space.
 
