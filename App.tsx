@@ -20,12 +20,11 @@ import { GameLogPanel } from './components/GameLogPanel';
 import { ColonistWorkLogPanel } from './components/ColonistWorkLogPanel';
 import { ColonyChronologyPanel } from './components/ColonyChronologyPanel';
 
-const generateInitialStory = async (seed: string): Promise<{ colonyName: string; asteroidName: string; mapSeed: string; firstEntry: string; colonists: { name: string; backstory: string }[] }> => {
+const generateInitialStory = async (): Promise<{ colonyName: string; asteroidName: string; firstEntry: string; colonists: { name: string; backstory: string }[] }> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     const prompt = `Generate a unique sci-fi colony simulation starting scenario. The theme is a small human contingent deployed from an AI-overseen interstellar ark onto a rocky, asteroid-like comet (a 'manx' comet) that has been traveling for eons. Provide the following in JSON format:
     - colonyName: A unique, evocative name for the colony (e.g., 'Ironclad Hope', 'Halcyon Refuge', 'Terminus Outpost').
     - asteroidName: A sci-fi designation for the interstellar object, hinting at its nature (e.g., 'Comet 3I/ATLAS-Variant', 'Interloper 734', 'The Drifter').
-    - mapSeed: A random 4-digit number string for the procedural map generation.
     - firstEntry: A short, narrative log entry for the "Colony Chronology". This should be from the perspective of the paternalistic, slightly detached AI overseer observing its simulation trial. It should set the scene, mentioning the protocol and the objective.
     - colonists: An array of exactly 3 colonists, each with a unique, sci-fi-style 'name' (e.g., Kaelen, Roric, Seraphina, Jax) and a short, one-sentence 'backstory' hinting at their past skills or personality.
     
@@ -33,7 +32,6 @@ const generateInitialStory = async (seed: string): Promise<{ colonyName: string;
     {
       "colonyName": "Ironclad Hope",
       "asteroidName": "Interloper C/2023-A1 (Manx)",
-      "mapSeed": "7349",
       "firstEntry": "Initiation Protocol 7349-Alpha engaged. The human contingent has been deployed onto Elysium-4, their previous existence purged, replaced by core directives: survive, rebuild, hope. Observing biomass interaction with a 67% chance of initial resource scarcity. Let the trial commence.",
       "colonists": [
         { "name": "Kaelen", "backstory": "A brilliant xenobotanist haunted by the loss of their homeworld's flora." },
@@ -53,7 +51,6 @@ const generateInitialStory = async (seed: string): Promise<{ colonyName: string;
                     properties: {
                         colonyName: { type: Type.STRING },
                         asteroidName: { type: Type.STRING },
-                        mapSeed: { type: Type.STRING },
                         firstEntry: { type: Type.STRING },
                         colonists: {
                             type: Type.ARRAY,
@@ -84,7 +81,6 @@ const generateInitialStory = async (seed: string): Promise<{ colonyName: string;
         return {
             colonyName: "Hope's Landing",
             asteroidName: "X-42",
-            mapSeed: seed,
             firstEntry: "The connection to the primary consciousness flickered. Reverting to a cached simulation seed. The subjects awaken, unaware of the disruption. The experiment continues.",
             colonists: [
                 { name: "Jax", backstory: "A mechanic who can fix anything with a wrench and some sharp words." },
@@ -154,181 +150,29 @@ export default function App() {
 
     const validTile = (arr: any[][], y: number, x: number) => arr && arr[y] && arr[y][x] !== undefined;
 
-    const generateProceduralGrid = useCallback((currentSeed: string): Grid => {
-        const prng = createPRNG(currentSeed);
-        const noise2D = createNoise2D(prng); const mineralNoise2D = createNoise2D(prng); const gemNoise2D = createNoise2D(prng); const treeNoise2D = createNoise2D(prng);
-        let newGrid: Grid = Array.from({ length: C.GRID_HEIGHT }, (_, y) => Array(C.GRID_WIDTH).fill(null).map((__, x) => ({ x, y, type: TileType.EMPTY, regrowthTicks: 0 })));
-        
-        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { if (noise2D(x / 20, y / 20) > -0.2) newGrid[y][x].type = TileType.ROCK; }
-        
-        for (let i = 0; i < 4; i++) {
-            let tempGrid: Grid = newGrid.map(row => row.map(cell => ({ ...cell })));
-            for (let y = 1; y < C.GRID_HEIGHT - 1; y++) for (let x = 1; x < C.GRID_WIDTH - 1; x++) {
-                let wallCount = 0;
-                for (let ny = y - 1; ny <= y + 1; ny++) for (let nx = x - 1; nx <= x + 1; nx++) { if (ny === y && nx === x) continue; if (newGrid[ny][nx].type === TileType.ROCK) wallCount++; }
-                if (wallCount > 4) tempGrid[y][x].type = TileType.ROCK; else if (wallCount < 4) tempGrid[y][x].type = TileType.EMPTY;
-            }
-            newGrid = tempGrid;
+    // FIX: Added missing isTileDesignatable helper function.
+    const isTileDesignatable = (tileType: TileType, designationType: DesignationType): boolean => {
+        switch (designationType) {
+            case DesignationType.MINE:
+                return [TileType.ROCK, TileType.MINERAL, TileType.GEM].includes(tileType);
+            case DesignationType.CHOP:
+                return tileType === TileType.TREE;
+            case DesignationType.HARVEST: // This is a meta-type in the UI that can mean mine or chop
+                return [TileType.ROCK, TileType.MINERAL, TileType.GEM, TileType.TREE].includes(tileType);
+            case DesignationType.BUILD_FLOOR:
+            case DesignationType.BUILD_WALL:
+            case DesignationType.BUILD_DOOR:
+            case DesignationType.BUILD_BED:
+            case DesignationType.BUILD_STORAGE:
+            case DesignationType.BUILD_HYDROPONICS:
+            case DesignationType.BUILD_ARCADE:
+                return tileType === TileType.EMPTY || tileType === TileType.FLOOR; // Can build on empty space or existing floor
+            default:
+                return false;
         }
-
-        const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
-        for (let y = startY - 6; y <= startY + 6; y++) for (let x = startX - 9; x <= startX + 9; x++) {
-            if (y >= 0 && y < C.GRID_HEIGHT && x >= 0 && x < C.GRID_WIDTH) newGrid[y][x] = { ...newGrid[y][x], type: TileType.EMPTY, regrowthTicks: 0 };
-        }
-        
-        const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
-        for(let y = shelterRect.y0; y <= shelterRect.y1; y++) {
-            for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
-                if(validTile(newGrid, y, x)) newGrid[y][x].type = TileType.FLOOR;
-            }
-        }
-
-        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
-            if (newGrid[y][x].type === TileType.ROCK) {
-                if (mineralNoise2D(x / 10, y / 10) > 0.4) newGrid[y][x].type = TileType.MINERAL;
-                else if (gemNoise2D(x / 8, y / 8) > 0.8) newGrid[y][x].type = TileType.GEM;
-            } else if (newGrid[y][x].type === TileType.EMPTY) {
-                const inClearZone = (y > startY - 7 && y < startY + 7 && x > startX - 10 && x < startX + 10);
-                if (treeNoise2D(x / 15, y / 15) > 0.5 && !inClearZone) newGrid[y][x].type = TileType.TREE;
-            }
-        }
-
-        for (let i = 0; i < 5; i++) { newGrid[startY + 2][startX - 2 + i].type = TileType.STORAGE; newGrid[startY + 4][startX - 2 + i].type = TileType.BED; }
-        
-        return newGrid;
-    }, []);
-
-    const isTileDesignatable = (type: TileType, designation: DesignationType) => {
-        if (designation === DesignationType.HARVEST || designation === DesignationType.MINE) return type === TileType.ROCK || type === TileType.MINERAL || type === TileType.GEM || type === TileType.TREE;
-        if (designation === DesignationType.CHOP) return type === TileType.TREE;
-        if (designation === DesignationType.BUILD_FLOOR || designation === DesignationType.BUILD_WALL || designation === DesignationType.BUILD_DOOR || designation === DesignationType.BUILD_BED || designation === DesignationType.BUILD_STORAGE || designation === DesignationType.BUILD_HYDROPONICS || designation === DesignationType.BUILD_ARCADE) return type === TileType.EMPTY || type === TileType.FLOOR;
-        return false;
-    };
-    
-    const handleExportJson = () => {
-        const state = { grid, designations, colonists, storedMinerals, storedGems, storedLogs, storedFood, averageHappiness, milestoneLevel, currentGoal, gameLog, gameTime, tickCount, currentDay, currentHour, colonistLogs, seed, activeEvents, colonyName, asteroidName, chronology };
-        const json = JSON.stringify(state, null, 2);
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `project-asteroid-save-${seed}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     };
 
-    const handleImportJson = (evt: React.ChangeEvent<HTMLInputElement>) => {
-        const file = evt.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const state = JSON.parse(e.target?.result as string);
-                if (!state.grid || !state.colonists) throw new Error("Invalid save file.");
-                setGrid(state.grid);
-                setDesignations(state.designations);
-                setColonists(state.colonists);
-                setStoredMinerals(state.storedMinerals || 0);
-                setStoredGems(state.storedGems || 0);
-                setStoredLogs(state.storedLogs || 0);
-                setStoredFood(state.storedFood || 0);
-                setAverageHappiness(state.averageHappiness || C.MAX_HAPPINESS);
-                setMilestoneLevel(state.milestoneLevel || 0);
-                setCurrentGoal(state.currentGoal || C.INITIAL_GOAL);
-                setGameLog(state.gameLog || []);
-                setGameTime(state.gameTime || 0);
-                setTickCount(state.tickCount || 0);
-                setCurrentDay(state.currentDay || 1);
-                setCurrentHour(state.currentHour || 6);
-                setColonistLogs(state.colonistLogs || Array.from({ length: (state.colonists || []).length }, () => Array(C.DAY_LENGTH_TICKS).fill(null)));
-                setSeed(state.seed || 'imported');
-                setActiveEvents(state.activeEvents || []);
-                setColonyName(state.colonyName || "Imported Colony");
-                setAsteroidName(state.asteroidName || "Unknown");
-                setChronology(state.chronology || []);
-                setSelectedColonist(null);
-                setIsPlaying(false);
-                setShowIntro(false);
-                setImportError("Loaded successfully!");
-            } catch (ex) {
-                const message = ex instanceof Error ? ex.message : String(ex);
-                setImportError(`Import failed: ${message}`);
-            }
-        };
-        reader.readAsText(file);
-        evt.target.value = "";
-    };
-
-    const resetGame = useCallback(async (newSeed?: string) => {
-        setIsGenerating(true);
-        setShowIntro(true);
-        setIsPlaying(false);
-        setImportError("");
-        const seedToUse = newSeed || Date.now().toString();
-
-        const storyData = await generateInitialStory(seedToUse);
-        setColonyName(storyData.colonyName);
-        setAsteroidName(storyData.asteroidName);
-        setSeed(storyData.mapSeed);
-        
-        addLog(`Generating new asteroid with seed: ${storyData.mapSeed}...`);
-        
-        const newGrid = generateProceduralGrid(storyData.mapSeed);
-        const newDesignations: Designations = Array.from({ length: C.GRID_HEIGHT }, () => Array(C.GRID_WIDTH).fill(null));
-        
-        const startX = Math.floor(C.GRID_WIDTH / 2);
-        const startY = Math.floor(C.GRID_HEIGHT / 2);
-        const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
-        for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
-            if(validTile(newGrid, shelterRect.y0, x) && isTileDesignatable(newGrid[shelterRect.y0][x].type, DesignationType.BUILD_WALL)) newDesignations[shelterRect.y0][x] = DesignationType.BUILD_WALL;
-            if(validTile(newGrid, shelterRect.y1, x) && isTileDesignatable(newGrid[shelterRect.y1][x].type, DesignationType.BUILD_WALL)) newDesignations[shelterRect.y1][x] = DesignationType.BUILD_WALL;
-        }
-        for(let y = shelterRect.y0 + 1; y < shelterRect.y1; y++) {
-            if(validTile(newGrid, y, shelterRect.x0) && isTileDesignatable(newGrid[y][shelterRect.x0].type, DesignationType.BUILD_WALL)) newDesignations[y][shelterRect.x0] = DesignationType.BUILD_WALL;
-            if(validTile(newGrid, y, shelterRect.x1) && isTileDesignatable(newGrid[y][shelterRect.x1].type, DesignationType.BUILD_WALL)) newDesignations[y][shelterRect.x1] = DesignationType.BUILD_WALL;
-        }
-        const doorX = startX;
-        const doorY = shelterRect.y1;
-        if(validTile(newGrid, doorY, doorX)) newDesignations[doorY][doorX] = DesignationType.BUILD_DOOR;
-
-        const startingPos = { x: startX, y: startY };
-        const newColonists: Colonist[] = storyData.colonists.map((c, i) => ({
-            id: `Colonist-${i + 1}`,
-            name: c.name,
-            backstory: c.backstory,
-            x: startingPos.x + i,
-            y: startY + 1,
-            task: 'IDLE',
-            target: null,
-            path: [],
-            workTicks: 0,
-            carrying: null,
-            energy: C.MAX_ENERGY,
-            happiness: C.MAX_HAPPINESS,
-            patience: C.COLONIST_PATIENCE,
-            hunger: 0,
-            boredom: 0
-        }));
-        setGrid(newGrid);
-        setDesignations(newDesignations);
-        setColonists(newColonists);
-        setStoredMinerals(0); setStoredGems(0); setStoredLogs(0); setStoredFood(10); setSelectedColonist(null); setAverageHappiness(C.MAX_HAPPINESS);
-        setMilestoneLevel(0); setCurrentGoal(C.INITIAL_GOAL);
-        setActiveEvents([]);
-        setEventPopup(null);
-        setGameLog([]); setGameTime(0);
-        setTickCount(0); setCurrentDay(1); setCurrentHour(6);
-        setChronology([{ timestamp: 'Day 1, 06:00', message: storyData.firstEntry }]);
-        setColonistLogs(Array.from({ length: newColonists.length }, () => Array(C.DAY_LENGTH_TICKS).fill(null)));
-        addLog('Colony established. Good luck.');
-        setIsGenerating(false);
-    }, [generateProceduralGrid, addLog]);
-
-    useEffect(() => { resetGame(seed); // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
+    // FIX: Moved function definitions before gameTick to fix hoisting issues.
     const recordColonistWorkLog = useCallback((updatedColonists: Colonist[], tickNum: number) => {
         setColonistLogs(logs => {
             const newLogs = Array.from({length: updatedColonists.length}, (_, i) => logs[i] || Array(C.DAY_LENGTH_TICKS).fill(null));
@@ -364,7 +208,6 @@ export default function App() {
         return `Day ${currentDay}, ${String(currentHour).padStart(2, '0')}:00. Morale is ${happinessStatus} (${averageHappiness.toFixed(0)}%). Resources are ${resourceStatus}. The colonists are primarily focused on ${dominantActivity.toLowerCase()}.`;
 
     }, [averageHappiness, storedMinerals, storedLogs, colonists, colonistLogs, tickCount, currentDay, currentHour]);
-
 
     const generateChronicleUpdate = useCallback(async () => {
         if(isNarrating) return;
@@ -405,8 +248,7 @@ export default function App() {
         }
 
     }, [chronology, summarizeGameState, addChronologyEntry, isNarrating]);
-    
-    // Fix: Moved gameTick definition before the useEffect hook that uses it.
+
     const gameTick = useCallback(() => {
         if (!grid || !designations) return;
         const currentTick = tickCount + 1;
@@ -853,6 +695,157 @@ export default function App() {
         });
     }, [grid, designations, averageHappiness, selectedColonist, storedMinerals, storedGems, storedLogs, storedFood, recordColonistWorkLog, tickCount, milestoneLevel, currentGoal, activeEvents, colonists.length, addLog, isNarrating, generateChronicleUpdate]);
 
+    const generateProceduralGrid = useCallback((currentSeed: string): Grid => {
+        const prng = createPRNG(currentSeed);
+        const noise2D = createNoise2D(prng); const mineralNoise2D = createNoise2D(prng); const gemNoise2D = createNoise2D(prng); const treeNoise2D = createNoise2D(prng);
+        let newGrid: Grid = Array.from({ length: C.GRID_HEIGHT }, (_, y) => Array(C.GRID_WIDTH).fill(null).map((__, x) => ({ x, y, type: TileType.EMPTY, regrowthTicks: 0 })));
+        
+        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { if (noise2D(x / 20, y / 20) > -0.2) newGrid[y][x].type = TileType.ROCK; }
+        
+        for (let i = 0; i < 4; i++) {
+            let tempGrid: Grid = newGrid.map(row => row.map(cell => ({ ...cell })));
+            for (let y = 1; y < C.GRID_HEIGHT - 1; y++) for (let x = 1; x < C.GRID_WIDTH - 1; x++) {
+                let wallCount = 0;
+                for (let ny = y - 1; ny <= y + 1; ny++) for (let nx = x - 1; nx <= x + 1; nx++) { if (ny === y && nx === x) continue; if (newGrid[ny][nx].type === TileType.ROCK) wallCount++; }
+                if (wallCount > 4) tempGrid[y][x].type = TileType.ROCK; else if (wallCount < 4) tempGrid[y][x].type = TileType.EMPTY;
+            }
+            newGrid = tempGrid;
+        }
+
+        const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
+        for (let y = startY - 6; y <= startY + 6; y++) for (let x = startX - 9; x <= startX + 9; x++) {
+            if (y >= 0 && y < C.GRID_HEIGHT && x >= 0 && x < C.GRID_WIDTH) newGrid[y][x] = { ...newGrid[y][x], type: TileType.EMPTY, regrowthTicks: 0 };
+        }
+        
+        const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
+        for(let y = shelterRect.y0; y <= shelterRect.y1; y++) {
+            for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
+                if(validTile(newGrid, y, x)) newGrid[y][x].type = TileType.FLOOR;
+            }
+        }
+
+        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+            if (newGrid[y][x].type === TileType.ROCK) {
+                if (mineralNoise2D(x / 10, y / 10) > 0.4) newGrid[y][x].type = TileType.MINERAL;
+                else if (gemNoise2D(x / 8, y / 8) > 0.8) newGrid[y][x].type = TileType.GEM;
+            } else if (newGrid[y][x].type === TileType.EMPTY) {
+                const inClearZone = (y > startY - 7 && y < startY + 7 && x > startX - 10 && x < startX + 10);
+                if (treeNoise2D(x / 15, y / 15) > 0.5 && !inClearZone) newGrid[y][x].type = TileType.TREE;
+            }
+        }
+
+        for (let i = 0; i < 5; i++) { newGrid[startY + 2][startX - 2 + i].type = TileType.STORAGE; newGrid[startY + 4][startX - 2 + i].type = TileType.BED; }
+        
+        return newGrid;
+    }, []);
+
+    const resetGame = useCallback(async (newSeed?: string) => {
+        setIsGenerating(true);
+        setShowIntro(true);
+        setIsPlaying(false);
+        setImportError("");
+        const seedToUse = newSeed || Date.now().toString().slice(-4);
+        setSeed(seedToUse);
+
+        const storyData = await generateInitialStory();
+        setColonyName(storyData.colonyName);
+        setAsteroidName(storyData.asteroidName);
+        
+        addLog(`Generating new asteroid with seed: ${seedToUse}...`);
+        
+        const newGrid = generateProceduralGrid(seedToUse);
+        const newDesignations: Designations = Array.from({ length: C.GRID_HEIGHT }, () => Array(C.GRID_WIDTH).fill(null));
+        
+        const startX = Math.floor(C.GRID_WIDTH / 2);
+        const startY = Math.floor(C.GRID_HEIGHT / 2);
+        const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
+        for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
+            if(validTile(newGrid, shelterRect.y0, x) && isTileDesignatable(newGrid[shelterRect.y0][x].type, DesignationType.BUILD_WALL)) newDesignations[shelterRect.y0][x] = DesignationType.BUILD_WALL;
+            if(validTile(newGrid, shelterRect.y1, x) && isTileDesignatable(newGrid[shelterRect.y1][x].type, DesignationType.BUILD_WALL)) newDesignations[shelterRect.y1][x] = DesignationType.BUILD_WALL;
+        }
+        for(let y = shelterRect.y0 + 1; y < shelterRect.y1; y++) {
+            if(validTile(newGrid, y, shelterRect.x0) && isTileDesignatable(newGrid[y][shelterRect.x0].type, DesignationType.BUILD_WALL)) newDesignations[y][shelterRect.x0] = DesignationType.BUILD_WALL;
+            if(validTile(newGrid, y, shelterRect.x1) && isTileDesignatable(newGrid[y][shelterRect.x1].type, DesignationType.BUILD_WALL)) newDesignations[y][shelterRect.x1] = DesignationType.BUILD_WALL;
+        }
+        const doorX = startX;
+        const doorY = shelterRect.y1;
+        if(validTile(newGrid, doorY, doorX)) newDesignations[doorY][doorX] = DesignationType.BUILD_DOOR;
+
+        const startingPos = { x: startX, y: startY };
+        const newColonists: Colonist[] = storyData.colonists.map((c, i) => ({
+            id: `Colonist-${i + 1}`,
+            name: c.name,
+            backstory: c.backstory,
+            x: startingPos.x + i,
+            y: startY + 1,
+            task: 'IDLE',
+            target: null,
+            path: [],
+            workTicks: 0,
+            carrying: null,
+            energy: C.MAX_ENERGY,
+            happiness: C.MAX_HAPPINESS,
+            patience: C.COLONIST_PATIENCE,
+            hunger: 0,
+            boredom: 0
+        }));
+        setGrid(newGrid);
+        setDesignations(newDesignations);
+        setColonists(newColonists);
+        setStoredMinerals(0); setStoredGems(0); setStoredLogs(0); setStoredFood(10); setSelectedColonist(null); setAverageHappiness(C.MAX_HAPPINESS);
+        setMilestoneLevel(0); setCurrentGoal(C.INITIAL_GOAL);
+        setActiveEvents([]);
+        setEventPopup(null);
+        setGameLog([]); setGameTime(0);
+        setTickCount(0); setCurrentDay(1); setCurrentHour(6);
+        setChronology([{ timestamp: 'Day 1, 06:00', message: storyData.firstEntry }]);
+        setColonistLogs(Array.from({ length: newColonists.length }, () => Array(C.DAY_LENGTH_TICKS).fill(null)));
+        addLog('Colony established. Good luck.');
+        setIsGenerating(false);
+    }, [generateProceduralGrid, addLog]);
+    
+    const closeEventPopup = useCallback(async () => {
+        const event = eventPopup;
+        if (!event) {
+            setIsPlaying(true);
+            return;
+        };
+
+        if (event.id === 'NEW_COLONIST') {
+            try {
+                const storyData = await generateInitialStory();
+                const newColonistData = storyData.colonists[0];
+                const newId = `Colonist-${colonists.length + 1}`;
+                const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
+                const newColonist: Colonist = {id: newId, name: newColonistData.name, backstory: newColonistData.backstory, x: startX, y: startY, task: 'IDLE', target: null, path: [], workTicks: 0, carrying: null, energy: C.MAX_ENERGY, happiness: C.MAX_HAPPINESS, patience: C.COLONIST_PATIENCE, hunger: 0, boredom: 0 };
+                setColonists(prev => [...prev, newColonist]);
+                setColonistLogs(prev => [...prev, Array(C.DAY_LENGTH_TICKS).fill(null)]);
+            } catch (error) {
+                 console.error("Failed to generate new colonist, using fallback.", error);
+                 // Fallback logic could be added here if needed
+            }
+        } else if (event.id === 'TRAGIC_ACCIDENT') {
+            setColonists(prevColonists => {
+                if (prevColonists.length <= 1) {
+                    addLog("A tragic accident was narrowly avoided.", "event");
+                    return prevColonists;
+                }
+                const victimIndex = Math.floor(Math.random() * prevColonists.length);
+                const victim = prevColonists[victimIndex];
+                addLog(`${victim.name} has died in a tragic accident.`, 'event');
+                setColonistLogs(prevLogs => prevLogs.filter((_, i) => i !== victimIndex));
+                return prevColonists.filter((_, i) => i !== victimIndex);
+            });
+        } else {
+             setActiveEvents(prev => [...prev.filter(e => e.id !== event.id), event]);
+        }
+        setEventPopup(null);
+        setIsPlaying(true);
+    }, [eventPopup, colonists.length, addLog]);
+
+    useEffect(() => { resetGame(seed); // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         if (!isPlaying || !grid || showIntro || eventPopup) return;
         const intervalId = setInterval(gameTick, C.GAME_TICK_MS);
@@ -1033,40 +1026,6 @@ export default function App() {
         setCursor('default');
     }
     
-    const closeEventPopup = async () => {
-        const event = eventPopup;
-        if (!event) {
-            setIsPlaying(true);
-            return;
-        };
-
-        if (event.id === 'NEW_COLONIST') {
-            const storyData = await generateInitialStory(seed + colonists.length);
-            const newColonistData = storyData.colonists[0];
-            const newId = `Colonist-${colonists.length + 1}`;
-            const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
-            const newColonist: Colonist = {id: newId, name: newColonistData.name, backstory: newColonistData.backstory, x: startX, y: startY, task: 'IDLE', target: null, path: [], workTicks: 0, carrying: null, energy: C.MAX_ENERGY, happiness: C.MAX_HAPPINESS, patience: C.COLONIST_PATIENCE, hunger: 0, boredom: 0 };
-            setColonists(prev => [...prev, newColonist]);
-            setColonistLogs(prev => [...prev, Array(C.DAY_LENGTH_TICKS).fill(null)]);
-        } else if (event.id === 'TRAGIC_ACCIDENT') {
-            setColonists(prevColonists => {
-                if (prevColonists.length <= 1) {
-                    addLog("A tragic accident was narrowly avoided.", "event");
-                    return prevColonists;
-                }
-                const victimIndex = Math.floor(Math.random() * prevColonists.length);
-                const victim = prevColonists[victimIndex];
-                addLog(`${victim.name} has died in a tragic accident.`, 'event');
-                setColonistLogs(prevLogs => prevLogs.filter((_, i) => i !== victimIndex));
-                return prevColonists.filter((_, i) => i !== victimIndex);
-            });
-        } else {
-             setActiveEvents(prev => [...prev.filter(e => e.id !== event.id), event]);
-        }
-        setEventPopup(null);
-        setIsPlaying(true);
-    };
-
     const handleUnstuck = () => {
         if (!grid) return;
         const newGrid = grid.map(r => r.map(c => ({...c})));
@@ -1106,6 +1065,101 @@ export default function App() {
         addLog('All colonists have been forcefully reset.', 'event');
     };
 
+    // FIX: Added missing handleExportJson and handleImportJson functions for game state management.
+    const handleExportJson = () => {
+        const gameState = {
+            version: C.GAME_VERSION,
+            seed,
+            grid,
+            designations,
+            colonists,
+            storedMinerals,
+            storedGems,
+            storedLogs,
+            storedFood,
+            milestoneLevel,
+            currentGoal,
+            gameTime,
+            tickCount,
+            currentDay,
+            currentHour,
+            activeEvents,
+            gameLog,
+            colonyName,
+            asteroidName,
+            chronology,
+            colonistLogs,
+        };
+        const jsonString = JSON.stringify(gameState, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${colonyName.replace(/\s/g, '_')}_Day${currentDay}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        addLog("Game state exported.");
+        setShowSettings(false);
+    };
+
+    const handleImportJson = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') throw new Error("Invalid file content");
+                const loadedState = JSON.parse(text);
+
+                if (!loadedState.grid || !loadedState.colonists || !loadedState.version) {
+                    throw new Error("Invalid save file format.");
+                }
+                if (loadedState.version !== C.GAME_VERSION) {
+                    throw new Error(`Incompatible save version. Expected ${C.GAME_VERSION}, got ${loadedState.version}.`);
+                }
+
+                setSeed(loadedState.seed);
+                setGrid(loadedState.grid);
+                setDesignations(loadedState.designations);
+                setColonists(loadedState.colonists);
+                setStoredMinerals(loadedState.storedMinerals);
+                setStoredGems(loadedState.storedGems);
+                setStoredLogs(loadedState.storedLogs);
+                setStoredFood(loadedState.storedFood);
+                setMilestoneLevel(loadedState.milestoneLevel);
+                setCurrentGoal(loadedState.currentGoal);
+                setGameTime(loadedState.gameTime);
+                setTickCount(loadedState.tickCount);
+                setCurrentDay(loadedState.currentDay);
+                setCurrentHour(loadedState.currentHour);
+                setActiveEvents(loadedState.activeEvents || []);
+                setGameLog(loadedState.gameLog || []);
+                setColonyName(loadedState.colonyName);
+                setAsteroidName(loadedState.asteroidName);
+                setChronology(loadedState.chronology);
+                setColonistLogs(loadedState.colonistLogs);
+
+                setSelectedColonist(null);
+                setEventPopup(null);
+                setIsPlaying(false);
+                setShowIntro(false);
+                setImportError("Import successful!");
+                addLog("Game state imported successfully.");
+                setShowSettings(false);
+            } catch (error) {
+                console.error("Import failed:", error);
+                const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+                setImportError(`Import failed: ${errorMessage}`);
+                addLog(`Failed to import save file: ${errorMessage}`, 'event');
+            }
+        };
+        reader.readAsText(file);
+    };
+
     return (
         <div className="bg-gray-900 min-h-screen flex flex-col items-center justify-center font-mono p-4 text-white">
             {showIntro && <IntroModal onStart={() => {setShowIntro(false); setIsPlaying(true);}} isGenerating={isGenerating} colonyName={colonyName} asteroidName={asteroidName} colonists={colonists} />}
@@ -1142,7 +1196,7 @@ export default function App() {
                 <div className="flex items-center space-x-4 mt-4">
                     <button onClick={() => setIsPlaying(!isPlaying)} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed"> {isPlaying ? 'Pause' : 'Play'} </button>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => resetGame()} className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-lg font-semibold"> Regenerate World </button>
+                        <button onClick={() => resetGame(seed)} className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-lg font-semibold"> Regenerate World </button>
                         <input type="text" value={seed} onChange={(e) => setSeed(e.target.value)} className="bg-gray-700 border border-gray-500 rounded px-2 py-1 w-32" placeholder="seed..."/>
                     </div>
                      <button onClick={handleUnstuck} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-md text-md font-semibold">Unstuck Colonists</button>
