@@ -1,0 +1,5 @@
+{
+  "name": "Project Asteroid",
+  "description": "A simulation game where you manage a colony of survivors on a desolate asteroid. Guide your autonomous colonists by designating tasks like mining and building to ensure their survival and prosperity against the harshness of space.",
+  "requestFramePermissions": []
+}
