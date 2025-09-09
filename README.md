@@ -27,6 +27,9 @@ This project was built with the assistance of Google's Gemini.
 4.  **Manage Needs**: Keep an eye on your colonists' happiness and energy. Building enough beds is crucial for them to rest and be efficient.
 5.  **Expand**: As you gather resources, expand your base, build more facilities, and strive to meet the collection goals.
 
+## Game UI
+![Visual Slice](media/visualslice.png)
+
 ## Controls
 
 -   **Left-Click**:
