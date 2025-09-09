@@ -28,7 +28,15 @@ This project was built with the assistance of Google's Gemini.
 5.  **Expand**: As you gather resources, expand your base, build more facilities, and strive to meet the collection goals.
 
 ## Game UI
+
 ![Visual Slice](media/visualslice.png)
+**Visual Slice:** *Main gameplay screen showing colony overview.*
+
+| ![Shelter](media/shelter.png) | ![Activity Log](media/activitylog.png) |
+|:-----------------------------:|:-------------------------------------:|
+| **Shelter:** *Colonist living area.* | **Activity Log:** *Task & event summary.* |
+
+
 
 ## Controls
 
