@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Colonist, ColonistLog, Designations, DesignationType, GameEvent, GameLogItem, Grid, InteractionMode, Point, Tile, TileType } from './types';
 import * as C from './constants';
@@ -155,7 +154,8 @@ export default function App() {
                 setTickCount(state.tickCount || 0);
                 setCurrentDay(state.currentDay || 1);
                 setCurrentHour(state.currentHour || 6);
-                setColonistLogs(state.colonistLogs || Array.from({ length: state.colonists.length }, () => Array(C.DAY_LENGTH_TICKS).fill(null)));
+                // FIX: Make fallback for colonist logs more robust in case colonists array is missing from save file.
+                setColonistLogs(state.colonistLogs || Array.from({ length: (state.colonists || []).length }, () => Array(C.DAY_LENGTH_TICKS).fill(null)));
                 setSeed(state.seed || 'imported');
                 setActiveEvents(state.activeEvents || []);
                 setSelectedColonist(null);
@@ -163,7 +163,9 @@ export default function App() {
                 setShowIntro(false);
                 setImportError("Loaded successfully!");
             } catch (ex) {
-                setImportError(`Import failed: ${(ex as Error).message}`);
+                // FIX: Improve error handling for file import failures.
+                const message = ex instanceof Error ? ex.message : String(ex);
+                setImportError(`Import failed: ${message}`);
             }
         };
         reader.readAsText(file);
@@ -368,10 +370,38 @@ export default function App() {
 
                 if (nc.energy <= C.LOW_ENERGY_THRESHOLD && nc.task !== 'RESTING' && nc.task !== 'MOVING_TO_REST') {
                     let nearestBed: Point | null = null, minBedDist = Infinity;
-                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.BED) { const d = distance(nc, {x,y}); if (d < minBedDist) { minBedDist = d; nearestBed = {x, y}; } }
+                    const availableBeds: Point[] = [];
+                    for (let y = 0; y < C.GRID_HEIGHT; y++) {
+                        for (let x = 0; x < C.GRID_WIDTH; x++) {
+                            if (newGrid[y]?.[x]?.type === TileType.BED) {
+                                const isOccupied = prevColonists.some(p => p.id !== nc.id && p.x === x && p.y === y);
+                                const isTargeted = prevColonists.some(p => p.id !== nc.id && p.target?.x === x && p.target?.y === y && (p.task === 'MOVING_TO_REST' || p.task === 'RESTING'));
+                                if (!isOccupied && !isTargeted) {
+                                    availableBeds.push({x, y});
+                                }
+                            }
+                        }
+                    }
+                    if (availableBeds.length > 0) {
+                        for(const bed of availableBeds) {
+                            const d = distance(nc, bed);
+                            if (d < minBedDist) {
+                                minBedDist = d;
+                                nearestBed = bed;
+                            }
+                        }
+                    }
+
                     if (nearestBed) {
                         const path = findPath(nc, nearestBed, newGrid, prevColonists.filter((_,i)=>i!==idx));
-                        if (path && path.length > 0) { nc.task = 'MOVING_TO_REST'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.id} is tired, going to rest.`); return nc; }
+                        if (path && path.length > 0) { 
+                             nc.task = 'MOVING_TO_REST'; 
+                             nc.path = path.slice(1); 
+                             nc.target = nearestBed;
+                             nc.patience = C.COLONIST_PATIENCE; 
+                             addLog(`${nc.id} is tired, going to rest.`); 
+                             return nc; 
+                        }
                     }
                 }
 
@@ -767,15 +797,18 @@ export default function App() {
             });
              setColonistLogs(prev => [...prev, Array(C.DAY_LENGTH_TICKS).fill(null)]);
         } else if (event.id === 'TRAGIC_ACCIDENT') {
-             if (colonists.length <= 1) {
-                addLog("A tragic accident was narrowly avoided.", "event");
-             } else {
-                const victimIndex = Math.floor(Math.random() * colonists.length);
-                const victim = colonists[victimIndex];
+            // FIX: Use functional state updates to prevent using stale state when determining the victim.
+            setColonists(prevColonists => {
+                if (prevColonists.length <= 1) {
+                    addLog("A tragic accident was narrowly avoided.", "event");
+                    return prevColonists;
+                }
+                const victimIndex = Math.floor(Math.random() * prevColonists.length);
+                const victim = prevColonists[victimIndex];
                 addLog(`${victim.id} has died in a tragic accident.`, 'event');
-                setColonists(prev => prev.filter((_, i) => i !== victimIndex));
-                setColonistLogs(prev => prev.filter((_, i) => i !== victimIndex));
-             }
+                setColonistLogs(prevLogs => prevLogs.filter((_, i) => i !== victimIndex));
+                return prevColonists.filter((_, i) => i !== victimIndex);
+            });
         } else {
              setActiveEvents(prev => [...prev.filter(e => e.id !== event.id), event]);
         }
@@ -789,7 +822,8 @@ export default function App() {
         let gridChanged = false;
     
         const updatedColonists = colonists.map(c => {
-            if (c.carrying && (newGrid[c.y][c.x].type === TileType.EMPTY || newGrid[c.y][c.x].type === TileType.FLOOR)) {
+            // FIX: Make unstuck more reliable by allowing items to be dropped on more tile types and adding a validity check.
+            if (c.carrying && validTile(newGrid, c.y, c.x) && [TileType.EMPTY, TileType.FLOOR, TileType.DOOR, TileType.SAPLING].includes(newGrid[c.y][c.x].type)) {
                 let dropType: TileType | null = null;
                 if (c.carrying === TileType.MINERAL) dropType = TileType.DROPPED_MINERAL;
                 else if (c.carrying === TileType.GEM) dropType = TileType.DROPPED_GEM;
@@ -857,7 +891,7 @@ export default function App() {
                         <button onClick={() => setShowSettings(s => !s)} className="p-2 bg-gray-600 hover:bg-gray-700 rounded-md">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
-                        {showSettings && <SettingsModal onExport={handleExportJson} onImport={handleImportJson} importError={importError} />}
+                        {showSettings && <SettingsModal onExport={handleExportJson} onImport={handleImportJson} importError={importError} setImportError={setImportError} />}
                     </div>
                 </div>
                  <Legend />
