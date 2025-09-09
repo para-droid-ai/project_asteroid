@@ -15,7 +15,7 @@ export const ColonistQuickSelectPanel: React.FC<ColonistQuickSelectPanelProps> =
         {colonists.map((c, i) => (
             <button key={c.id} onClick={() => onSelect(c)} className={`w-full text-left px-3 py-1 rounded text-sm ${selectedId === c.id ? 'bg-cyan-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
                 <span className={`inline-block mr-2 w-3 h-3 rounded-full ${COLONIST_LOG_COLORS[i % COLONIST_LOG_COLORS.length]}`}/>
-                {c.id}
+                {c.name}
             </button>
         ))}
     </div>

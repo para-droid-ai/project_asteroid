@@ -1,5 +1,5 @@
 
-export const GAME_VERSION = 'v0.9.2';
+export const GAME_VERSION = 'v0.10.0-alpha.1';
 export const GRID_WIDTH = 80;
 export const GRID_HEIGHT = 43;
 export const TILE_SIZE = 16;
@@ -24,22 +24,39 @@ export const DOOR_COST = 1;
 export const FLOOR_COST = 0; // Not used but good for consistency
 export const BED_COST = 3;
 export const STORAGE_COST = 2;
+export const HYDROPONICS_COST = 5; // Minerals
+export const ARCADE_COST = 8; // Minerals
+export const PLANTING_DURATION = 10;
+export const HARVESTING_DURATION = 8;
+export const CROP_GROWTH_DURATION = 800;
+export const FOOD_YIELD_PER_HARVEST = 5;
 export const TREE_REGROWTH_CHANCE = 0.0001;
 export const SAPLING_TO_TREE_TICKS = 2000;
 export const DAILY_EVENT_CHANCE = 0.4;
 export const COLONIST_PATIENCE = 5;
+export const MAX_HUNGER = 1000;
+export const HUNGER_DECAY_RATE = 0.5;
+export const LOW_HUNGER_THRESHOLD = 300;
+export const FOOD_NUTRITION = 500;
+export const MAX_BOREDOM = 1000;
+export const BOREDOM_INCREASE_RATE = 0.4;
+export const HIGH_BOREDOM_THRESHOLD = 700;
+export const FUN_RECOVERY_RATE = 15;
 
 export const PALETTE = {
     BACKGROUND: '#1a1a2e', NIGHT: '#11141f', ROCK: '#6b7280', MINERAL: '#facc15', GEM: '#9333ea', COLONIST: '#ffffff',
     COLONIST_SELECTED: '#67e8f9', STORAGE: '#3b82f6', DROPPED_MINERAL: '#fde047', DROPPED_GEM: '#c084fc',
     BED: '#be123c', FLOOR: '#4a5568', DESIGNATION_MINE: 'rgba(255, 100, 100, 0.4)',
-    DESIGNATION_BUILD: 'rgba(100, 255, 100, 0.4)', TREE: '#22c55e', DROPPED_LOG: '#854d0e', WALL: '#a1a1aa', DOOR: '#f59e0b', SAPLING: '#65a30d'
+    DESIGNATION_BUILD: 'rgba(100, 255, 100, 0.4)', TREE: '#22c55e', DROPPED_LOG: '#854d0e', WALL: '#a1a1aa', DOOR: '#f59e0b', SAPLING: '#65a30d',
+    HYDROPONICS: '#059669', ARCADE: '#db2777', DROPPED_FOOD: '#fca5a5'
 };
 
 export const CHARS = {
     ROCK: '#', MINERAL: '*', GEM: '♦', COLONIST: '@', COLONIST_WORKING: 'X', COLONIST_HAULING: 'o',
-    COLONIST_RESTING: 'z', DROPPED_MINERAL: '.', DROPPED_GEM: '◦', STORAGE: 'S', BED: 'b', FLOOR: '·',
+    COLONIST_RESTING: 'z', COLONIST_EATING: 'E', COLONIST_PLAYING: 'P',
+    DROPPED_MINERAL: '.', DROPPED_GEM: '◦', STORAGE: 'S', BED: 'b', FLOOR: '·',
     TREE: 'T', WALL: '■', DROPPED_LOG: '=', DOOR: '+', SAPLING: ',',
+    HYDROPONICS: 'h', ARCADE: 'A', DROPPED_FOOD: 'f',
 };
 
 export const COLONIST_LOG_COLORS = [ "bg-cyan-400","bg-green-400","bg-pink-400", "bg-yellow-300","bg-purple-400","bg-red-400","bg-blue-400","bg-orange-400" ];

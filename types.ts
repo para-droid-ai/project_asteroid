@@ -13,7 +13,10 @@ export enum TileType {
   DROPPED_LOG = 'DROPPED_LOG',
   WALL = 'WALL',
   DOOR = 'DOOR',
-  SAPLING = 'SAPLING'
+  SAPLING = 'SAPLING',
+  HYDROPONICS_TRAY = 'HYDROPONICS_TRAY',
+  ARCADE_MACHINE = 'ARCADE_MACHINE',
+  DROPPED_FOOD = 'DROPPED_FOOD'
 }
 
 export enum DesignationType {
@@ -24,7 +27,9 @@ export enum DesignationType {
   BUILD_DOOR = 'BUILD_DOOR',
   HARVEST = 'HARVEST',
   BUILD_BED = 'BUILD_BED',
-  BUILD_STORAGE = 'BUILD_STORAGE'
+  BUILD_STORAGE = 'BUILD_STORAGE',
+  BUILD_HYDROPONICS = 'BUILD_HYDROPONICS',
+  BUILD_ARCADE = 'BUILD_ARCADE'
 }
 
 export interface Point {
@@ -35,23 +40,29 @@ export interface Point {
 export interface Tile extends Point {
   type: TileType;
   regrowthTicks: number;
+  growth?: number;
 }
 
 export type Grid = Tile[][];
 export type Designations = (DesignationType | null)[][];
 
-export type CarryingType = TileType.MINERAL | TileType.GEM | 'LOGS' | null;
+export type CarryingType = TileType.MINERAL | TileType.GEM | 'LOGS' | 'FOOD' | null;
 
 export interface Colonist extends Point {
   id: string;
+  name: string;
+  backstory: string;
   task: string;
   target: Point | null;
   path: Point[];
   workTicks: number;
   carrying: CarryingType;
+  carryingAmount?: number;
   energy: number;
   happiness: number;
   patience: number;
+  hunger: number;
+  boredom: number;
 }
 
 export interface GameEvent {
@@ -65,6 +76,11 @@ export interface GameEvent {
 export interface GameLogItem {
   msg: string;
   type: 'standard' | 'event';
+}
+
+export interface ChronologyEntry {
+    timestamp: string;
+    message: string;
 }
 
 export interface ColonistLogEntry {

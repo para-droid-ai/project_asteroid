@@ -1,6 +1,6 @@
 # Project Asteroid
 
-![Project Asteroid Gameplay](media/newgame.png)
+![Project Asteroid Gameplay](https://storage.googleapis.com/project-asteroid-public/project-asteroid-screenshot.png)
 
 A colony simulation game where you manage a group of survivors on a desolate asteroid. Guide your autonomous colonists by designating tasks like mining and building to ensure their survival and prosperity against the harshness of space.
 
@@ -26,17 +26,6 @@ This project was built with the assistance of Google's Gemini.
     -   **Build**: Select a structure to build (e.g., Floor, Wall, Bed) and designate where you want it.
 4.  **Manage Needs**: Keep an eye on your colonists' happiness and energy. Building enough beds is crucial for them to rest and be efficient.
 5.  **Expand**: As you gather resources, expand your base, build more facilities, and strive to meet the collection goals.
-
-## Game UI
-
-![Visual Slice](media/visualslice.png)
-**Visual Slice:** *Main gameplay screen showing colony overview.*
-
-| ![Shelter](media/shelter.png) | ![Activity Log](media/activitylog.png) |
-|:-----------------------------:|:-------------------------------------:|
-| **Shelter:** *Colonist living area.* | **Activity Log:** *Task & event summary.* |
-
-
 
 ## Controls
 

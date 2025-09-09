@@ -20,7 +20,10 @@ export const findPath = (start: Point, end: Point, currentGrid: Grid, currentPaw
                tileType === TileType.FLOOR || 
                tileType === TileType.DROPPED_LOG || 
                tileType === TileType.DOOR || 
-               tileType === TileType.SAPLING;
+               tileType === TileType.SAPLING ||
+               tileType === TileType.HYDROPONICS_TRAY ||
+               tileType === TileType.ARCADE_MACHINE ||
+               tileType === TileType.DROPPED_FOOD;
     };
 
     while (queue.length > 0) {

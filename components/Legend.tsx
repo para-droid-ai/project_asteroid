@@ -12,6 +12,8 @@ export const Legend: React.FC = () => (
         <span className="border-l border-gray-600 h-4 mx-1"></span>
         <span><span className="text-blue-500 font-bold">S</span>=Storage</span>
         <span><span className="text-red-500 font-bold">b</span>=Bed</span>
+        <span><span className="font-bold" style={{color: PALETTE.HYDROPONICS}}>h</span>=Hydroponics</span>
+        <span><span className="font-bold" style={{color: PALETTE.ARCADE}}>A</span>=Arcade</span>
         <span><span className="font-bold" style={{color: PALETTE.FLOOR}}>·</span>=Floor</span>
         <span><span className="font-bold" style={{color: PALETTE.WALL}}>■</span>=Wall</span>
         <span><span className="font-bold" style={{color: PALETTE.DOOR}}>+</span>=Door</span>
@@ -20,5 +22,7 @@ export const Legend: React.FC = () => (
         <span><span className="text-white font-bold">X</span>=Work</span>
         <span><span className="text-white font-bold">o</span>=Haul</span>
         <span><span className="text-white font-bold">z</span>=Rest</span>
+        <span><span className="text-white font-bold">E</span>=Eat</span>
+        <span><span className="text-white font-bold">P</span>=Play</span>
     </div>
 );
