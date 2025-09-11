@@ -103,3 +103,10 @@ export interface ColonistLogEntry {
 export type ColonistLog = (ColonistLogEntry | null)[];
 
 export type InteractionMode = 'INSPECT' | 'DESIGNATE';
+
+export interface PriorityTask {
+  id: string;
+  x: number;
+  y: number;
+  type: DesignationType;
+}
