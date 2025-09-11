@@ -16,19 +16,21 @@ Act as a world-class senior frontend engineer with deep expertise in React, Type
     *   Colonists have basic needs, such as **energy** (replenished by resting in beds), **hunger** (replenished by eating food), and **boredom** (reduced through recreation).
     *   Colonists have a happiness/morale level, which affects their work efficiency.
     *   Colonists should automatically find tasks to do based on player designations and their own needs. They should prioritize survival (satisfying critical needs) and then follow player orders.
+    *   Colonists can die from specific events.
 
 3.  **Player Interaction**:
     *   The player's role is to guide the colony by designating tasks.
     *   **Designation Tools**: The player can designate areas for:
-        *   **Mining**: Digging out rock, minerals, and gems.
+        *   **Mining**: Digging out rock (for stone), minerals, and gems.
         *   **Chopping**: Cutting down trees for logs.
-        *   **Building**: Constructing floors, walls, doors, beds, storage containers, **hydroponics trays**, and **arcade machines**.
+        *   **Building**: Constructing floors (wood/stone), walls (wood/stone), doors, beds, storage containers, **hydroponics trays**, and **arcade machines**.
+        *   **Upgrading**: Upgrading existing wood structures to stone.
     *   The player can inspect colonists and tiles to see their status.
 
 4.  **Resource Management**:
-    *   Colonists harvest resources (minerals, gems, logs, **food**) from the environment.
+    *   Colonists harvest resources (**stone**, minerals, gems, logs, **food**) from the environment.
     *   Harvested resources are initially dropped on the ground. Colonists must haul them to designated storage containers.
-    *   Resources like logs and minerals are required for building structures.
+    *   Resources like logs, stone, and minerals are required for building structures.
     *   The primary goal is to collect a certain amount of minerals to reach milestones.
 
 5.  **Game Loop & Time**:
@@ -40,13 +42,12 @@ Act as a world-class senior frontend engineer with deep expertise in React, Type
 
 *   **Main View**: A canvas-based rendering of the game world.
 *   **HUD**: The Head-Up Display must be clean and informative, showing:
-    *   Stored resources (Minerals, Gems, Logs, **Food**).
+    *   Stored resources (Minerals, Gems, Logs, **Stone**, **Food**).
     *   Colony-wide average happiness and work efficiency.
     *   Current day, time, and day/night indicator.
     *   Current goal progress.
 *   **Control Panel**: A menu for selecting different actions (Inspect, Harvest, Build various structures).
 *   **Inspector Panel**: A context-aware panel that shows details of a selected colonist or a hovered tile.
-*   **Colonist Overview**: A quick-select panel to see and select all colonists.
 *   **Logs**:
     *   A real-time game log showing important events and colonist actions.
     *   A visual activity log/timeline for each colonist, showing what they've been doing recently.
@@ -71,14 +72,15 @@ Act as a world-class senior frontend engineer with deep expertise in React, Type
 *   **V2: Code Refactoring & Modularization**: The single-file application has been successfully refactored into a more maintainable and scalable structure.
     *   **Component-Based UI**: The UI has been broken down into reusable React components (`StatsPanel`, `BuildMenu`, `GameLogPanel`, etc.).
     *   **Separation of Concerns**: Game logic, types, constants, and utilities were separated into dedicated files (`App.tsx`, `types.ts`, `constants.ts`, `utils/`).
-    *   **Project Structure**: The project now follows a standard React/TypeScript project structure.
 *   **V3: UI/UX & Simulation Enhancements**: Following the major refactor, a series of improvements were made to enhance gameplay and user experience.
     *   **Advanced UI Panels**: The UI was significantly upgraded with the addition of a `CombinedInspectorPanel` (for colonists and tiles), a `ColonistQuickSelectPanel`, and a visual `ColonistWorkLogPanel` timeline.
     *   **Deeper Simulation**: Core mechanics were expanded to include a `Happiness` system, which directly impacts colony-wide `Work Efficiency`. A full day/night cycle with time tracking was implemented, along with a basic random event system and tree regrowth mechanics.
     *   **Quality of Life**: Features like a JSON-based save/load system and an "Unstuck Colonists" utility were added.
-*   **v0.10.0: Deepening the Simulation (In Progress)**: Began a major feature update to further enhance the core simulation.
-    *   **Expanded Needs System**: Introduced a more complex colonist needs system, adding **Hunger** and **Boredom** alongside Energy.
-    *   **New Structures**: Added new buildable structures to support the new needs: **Hydroponics Trays** (for food) and **Arcade Machines** (for fun).
-    *   **UI Integration**: Updated UI panels (Inspector, Stats, Build Menu) to display and manage the new mechanics.
-    *   **Formal Roadmap**: Established a formal development roadmap (`0.10.0-update.md`) to guide the integration of these new mechanics and the future Gemini-powered narrative system.
-*   **Current State**: The game is stable and feature-rich post-refactor. It is now undergoing a significant feature update (v0.10.0) to enhance the core simulation with new colonist needs (Hunger, Boredom) and prepare for advanced AI-driven narrative features. The immediate focus is on fully implementing the AI behaviors related to satisfying these new needs.
+*   **v0.10.0: Deepening the Simulation & Narrative AI**: A major feature update to enhance the core simulation and integrate dynamic storytelling.
+    *   **Expanded Needs System**: Introduced a more complex colonist needs system, adding **Hunger** and **Boredom**.
+    *   **New Structures & AI**: Added **Hydroponics Trays** and **Arcade Machines**, with corresponding AI behaviors for colonists to autonomously manage their needs. The core AI logic for task prioritization was significantly improved.
+    *   **Gemini-Powered Narrative**:
+        *   **World Generation:** The game now starts by calling the Gemini API to generate a unique colony name, asteroid designation, colonist names, and backstories based on a deep sci-fi theme (inspired by 3I/ATLAS).
+        *   **Dynamic Chronicle:** Gemini periodically writes new entries to a "Colony Chronology" log, acting as a "god-in-the-machine" narrator that reacts to the player's progress and the colonists' actions.
+    *   **UI Overhaul**: The UI was re-architected to ensure all critical information (especially activity logs) is always visible.
+*   **Current State**: The game's core mechanics are stable, and the Gemini-powered narrative system is fully integrated. A new **Stone** resource has been added for construction. The focus is shifting to adding deeper consequences and more complex, AI-driven events.

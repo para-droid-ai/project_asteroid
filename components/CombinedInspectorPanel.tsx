@@ -1,64 +1,62 @@
 
-import React, { useState, useEffect } from 'react';
-import { Colonist, Tile } from '../types';
-import { MAX_ENERGY, MAX_HAPPINESS, MAX_HUNGER, MAX_BOREDOM } from '../constants';
+import React from 'react';
+import { Colonist, Tile, TileType } from '../types';
+import { MAX_ENERGY, MAX_HAPPINESS, MAX_HUNGER, MAX_BOREDOM, CROP_GROWTH_DURATION, SAPLING_TO_TREE_TICKS } from '../constants';
 
 interface CombinedInspectorPanelProps {
     colonist: Colonist | null;
     tile: Tile | null;
 }
 
+const StatBar = ({ label, value, max, colorClass }: { label: string, value: number, max: number, colorClass: string }) => {
+    const percentage = max > 0 ? (value / max) * 100 : 0;
+    return (
+        <div>
+            <p className="text-sm flex justify-between">
+                <span>{label}</span>
+                <span className="font-semibold text-gray-300">{value.toFixed(0)} / {max}</span>
+            </p>
+            <div className="w-full bg-slate-700 rounded-full h-2.5 mt-1">
+                <div className={`${colorClass} h-2.5 rounded-full`} style={{ width: `${percentage}%` }}></div>
+            </div>
+        </div>
+    );
+};
+
 export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ colonist, tile }) => {
-    const [activeTab, setActiveTab] = useState('tile');
+    if (colonist) {
+        return (
+            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 space-y-3 min-h-[220px]">
+                <p className="text-lg font-bold text-cyan-400">{colonist.name}</p>
+                <p>Task: <span className="font-semibold text-yellow-300">{colonist.task}</span></p>
+                
+                <StatBar label="Energy" value={colonist.energy} max={MAX_ENERGY} colorClass="bg-green-500" />
+                <StatBar label="Happiness" value={colonist.happiness} max={MAX_HAPPINESS} colorClass="bg-lime-500" />
+                <StatBar label="Hunger" value={colonist.hunger} max={MAX_HUNGER} colorClass="bg-orange-500" />
+                <StatBar label="Boredom" value={colonist.boredom} max={MAX_BOREDOM} colorClass="bg-pink-500" />
+            </div>
+        );
+    }
     
-    useEffect(() => {
-        if (colonist) {
-            setActiveTab('colonist');
-        } else {
-            setActiveTab('tile');
-        }
-    }, [colonist]);
+    if (tile) {
+        return (
+            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 space-y-2 min-h-[220px]">
+                <p className="text-lg font-bold text-cyan-400">Tile Info</p>
+                <p>Type: <span className="font-semibold text-yellow-300">{tile.type}</span></p>
+                <p>Coords: <span className="text-gray-400">({tile.x}, {tile.y})</span></p>
+                {tile.growth !== undefined && tile.type === TileType.HYDROPONICS_TRAY && (
+                    <StatBar label="Growth" value={tile.growth} max={CROP_GROWTH_DURATION} colorClass="bg-green-600" />
+                )}
+                {tile.type === TileType.SAPLING && (
+                    <StatBar label="Maturing" value={tile.regrowthTicks} max={SAPLING_TO_TREE_TICKS} colorClass="bg-lime-700" />
+                )}
+            </div>
+        );
+    }
 
     return (
-        <div className="w-full h-auto border-2 border-gray-700 bg-gray-800 rounded-md">
-            <div className="flex bg-gray-900 rounded-t-md">
-                <button onClick={() => setActiveTab('colonist')} className={`flex-1 p-2 text-sm rounded-tl-md ${activeTab === 'colonist' ? 'bg-gray-800 border-b-2 border-cyan-400' : 'bg-gray-900'}`}>Colonist</button>
-                <button onClick={() => setActiveTab('tile')} className={`flex-1 p-2 text-sm rounded-tr-md ${activeTab === 'tile' ? 'bg-gray-800 border-b-2 border-cyan-400' : 'bg-gray-900'}`}>Tile</button>
-            </div>
-            <div className="p-4 min-h-[190px]">
-                {activeTab === 'colonist' && (
-                    !colonist ? <div className="h-full flex items-center justify-center text-gray-500">Select a colonist</div> :
-                    <div>
-                        <h3 className="text-lg font-bold text-cyan-400 mb-1">{colonist.name}</h3>
-                        <p className="text-xs italic text-gray-400 mb-2">"{colonist.backstory}"</p>
-                        <p className="text-sm">Task: <span className="font-semibold text-yellow-300">{colonist.task}</span></p>
-                        <div className="my-1">
-                            <p className="text-xs">Energy: {colonist.energy.toFixed(0)} / {MAX_ENERGY}</p>
-                            <div className="w-full bg-gray-600 rounded-full h-1.5"><div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${(colonist.energy / MAX_ENERGY) * 100}%` }}></div></div>
-                        </div>
-                         <div className="my-1">
-                            <p className="text-xs">Happiness: {colonist.happiness.toFixed(0)} / {MAX_HAPPINESS}</p>
-                            <div className="w-full bg-gray-600 rounded-full h-1.5"><div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${(colonist.happiness / MAX_HAPPINESS) * 100}%` }}></div></div>
-                        </div>
-                        <div className="my-1">
-                            <p className="text-xs">Hunger: {(MAX_HUNGER - colonist.hunger).toFixed(0)} / {MAX_HUNGER}</p>
-                            <div className="w-full bg-gray-600 rounded-full h-1.5"><div className="bg-orange-500 h-1.5 rounded-full" style={{ width: `${((MAX_HUNGER - colonist.hunger) / MAX_HUNGER) * 100}%` }}></div></div>
-                        </div>
-                         <div className="my-1">
-                            <p className="text-xs">Boredom: {colonist.boredom.toFixed(0)} / {MAX_BOREDOM}</p>
-                            <div className="w-full bg-gray-600 rounded-full h-1.5"><div className="bg-pink-500 h-1.5 rounded-full" style={{ width: `${(colonist.boredom / MAX_BOREDOM) * 100}%` }}></div></div>
-                        </div>
-                    </div>
-                )}
-                {activeTab === 'tile' && (
-                    !tile ? <div className="h-full flex items-center justify-center text-gray-500">Hover over a tile</div> :
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-400 mb-2">Tile Inspector</h3>
-                        <p>Type: <span className="font-semibold text-yellow-300">{tile.type}</span></p>
-                        <p>Coords: <span className="font-semibold text-gray-300">({tile.x}, {tile.y})</span></p>
-                    </div>
-                )}
-            </div>
+        <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 min-h-[220px] flex items-center justify-center text-gray-500">
+            <p>Select a colonist or hover over a tile to inspect</p>
         </div>
     );
 };

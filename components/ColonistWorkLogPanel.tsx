@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Colonist, ColonistLog } from '../types';
 import { COLONIST_LOG_COLORS } from '../constants';
@@ -7,22 +6,23 @@ interface ColonistWorkLogPanelProps {
     colonists: Colonist[];
     logs: ColonistLog[];
     tickCount: number;
+    onSelect: (colonist: Colonist) => void;
+    selectedId: string | undefined;
 }
 
-export const ColonistWorkLogPanel: React.FC<ColonistWorkLogPanelProps> = ({ colonists, logs, tickCount }) => {
+export const ColonistWorkLogPanel: React.FC<ColonistWorkLogPanelProps> = ({ colonists, logs, tickCount, onSelect, selectedId }) => {
     const timelineLength = 100;
     const startTick = Math.max(0, tickCount - timelineLength);
     const activityKey = [ {color: "#facc15", label: "Mining"}, {color: "#4ade80", label: "Building"}, {color: "#854d0e", label: "Chopping"}, {color: "#fde047", label: "Hauling"}, {color: "#818cf8", label: "Resting"}, {color: "#6b7280", label: "Idle"}, {color: "#d1d5db", label: "Moving"} ];
 
     return (
-        <div className="flex flex-col bg-gray-800 p-3 border-2 border-gray-600 rounded-md flex-grow">
-            <div className="text-md mb-2 font-bold text-center text-gray-300">Colonist Activity Log</div>
-            <div className="flex-grow overflow-y-auto pr-2">
+        <div className="flex flex-col bg-gray-800 p-2 border-2 border-gray-600 rounded-md">
+            <div className="overflow-y-auto pr-2">
                 {colonists.map((col, idx) => {
                     const logForColonist = logs[idx];
                     if (!logForColonist || logForColonist.length === 0) {
                         return (
-                             <div key={col.id} className="flex items-center mb-1">
+                             <div key={col.id} onClick={() => onSelect(col)} className={`flex items-center mb-1 p-1 rounded cursor-pointer ${selectedId === col.id ? 'bg-cyan-700' : 'hover:bg-gray-700'}`}>
                                 <span className={`inline-block mr-2 w-4 h-4 rounded-full ${COLONIST_LOG_COLORS[idx % COLONIST_LOG_COLORS.length]}`}/>
                                 <span className="w-24 text-xs font-semibold">{col.name}</span>
                                 <div className="flex-1 flex items-center bg-gray-900 rounded-sm overflow-hidden h-4 italic text-xs text-gray-500 justify-center">No log data</div>
@@ -30,7 +30,7 @@ export const ColonistWorkLogPanel: React.FC<ColonistWorkLogPanelProps> = ({ colo
                         )
                     }
                     return (
-                        <div key={col.id} className="flex items-center mb-1">
+                        <div key={col.id} onClick={() => onSelect(col)} className={`flex items-center mb-1 p-1 rounded cursor-pointer ${selectedId === col.id ? 'bg-cyan-700' : 'hover:bg-gray-700'}`}>
                             <span className={`inline-block mr-2 w-4 h-4 rounded-full ${COLONIST_LOG_COLORS[idx % COLONIST_LOG_COLORS.length]}`}/>
                             <span className="w-24 text-xs font-semibold">{col.name}</span>
                             <div className="flex-1 flex items-center bg-gray-900 rounded-sm overflow-hidden">

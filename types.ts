@@ -1,4 +1,5 @@
 
+
 export enum TileType {
   EMPTY = 'EMPTY',
   ROCK = 'ROCK',
@@ -8,28 +9,35 @@ export enum TileType {
   DROPPED_GEM = 'DROPPED_GEM',
   STORAGE = 'STORAGE',
   BED = 'BED',
-  FLOOR = 'FLOOR',
+  WOOD_FLOOR = 'WOOD_FLOOR',
+  STONE_FLOOR = 'STONE_FLOOR',
   TREE = 'TREE',
   DROPPED_LOG = 'DROPPED_LOG',
-  WALL = 'WALL',
+  WOOD_WALL = 'WOOD_WALL',
+  STONE_WALL = 'STONE_WALL',
   DOOR = 'DOOR',
   SAPLING = 'SAPLING',
   HYDROPONICS_TRAY = 'HYDROPONICS_TRAY',
   ARCADE_MACHINE = 'ARCADE_MACHINE',
-  DROPPED_FOOD = 'DROPPED_FOOD'
+  DROPPED_FOOD = 'DROPPED_FOOD',
+  DROPPED_STONE = 'DROPPED_STONE'
 }
 
 export enum DesignationType {
   MINE = 'MINE',
-  BUILD_FLOOR = 'BUILD_FLOOR',
+  BUILD_WOOD_FLOOR = 'BUILD_WOOD_FLOOR',
   CHOP = 'CHOP',
-  BUILD_WALL = 'BUILD_WALL',
+  BUILD_WOOD_WALL = 'BUILD_WOOD_WALL',
   BUILD_DOOR = 'BUILD_DOOR',
   HARVEST = 'HARVEST',
   BUILD_BED = 'BUILD_BED',
   BUILD_STORAGE = 'BUILD_STORAGE',
   BUILD_HYDROPONICS = 'BUILD_HYDROPONICS',
-  BUILD_ARCADE = 'BUILD_ARCADE'
+  BUILD_ARCADE = 'BUILD_ARCADE',
+  BUILD_STONE_FLOOR = 'BUILD_STONE_FLOOR',
+  BUILD_STONE_WALL = 'BUILD_STONE_WALL',
+  UPGRADE_TO_STONE_FLOOR = 'UPGRADE_TO_STONE_FLOOR',
+  UPGRADE_TO_STONE_WALL = 'UPGRADE_TO_STONE_WALL',
 }
 
 export interface Point {
@@ -46,7 +54,7 @@ export interface Tile extends Point {
 export type Grid = Tile[][];
 export type Designations = (DesignationType | null)[][];
 
-export type CarryingType = TileType.MINERAL | TileType.GEM | 'LOGS' | 'FOOD' | null;
+export type CarryingType = TileType.MINERAL | TileType.GEM | 'LOGS' | 'FOOD' | 'STONE' | null;
 
 export interface Colonist extends Point {
   id: string;
@@ -63,6 +71,10 @@ export interface Colonist extends Point {
   patience: number;
   hunger: number;
   boredom: number;
+  stuckTicks: number;
+  lastPosition?: Point;
+  criticallyLowEnergyTicks: number;
+  criticallyLowHungerTicks: number;
 }
 
 export interface GameEvent {

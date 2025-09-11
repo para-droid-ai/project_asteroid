@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { Colonist, ColonistLog, Designations, DesignationType, GameEvent, GameLogItem, Grid, InteractionMode, Point, Tile, TileType, ChronologyEntry } from './types';
@@ -6,15 +7,14 @@ import * as C from './constants';
 import { distance } from './utils/geometry';
 import { createPRNG, createNoise2D } from './utils/noise';
 import { findPath } from './utils/pathfinding';
+import { initialStoryFallbacks, chronologyPlaceholders } from './utils/fallbackData';
 
 import { IntroModal } from './components/IntroModal';
 import { StatsPanel } from './components/StatsPanel';
-import { EventsPanel } from './components/EventsPanel';
 import { EventModal } from './components/EventModal';
 import { SettingsModal } from './components/SettingsModal';
 import { Legend } from './components/Legend';
 import { CombinedInspectorPanel } from './components/CombinedInspectorPanel';
-import { ColonistQuickSelectPanel } from './components/ColonistQuickSelectPanel';
 import { BuildMenu } from './components/BuildMenu';
 import { GameLogPanel } from './components/GameLogPanel';
 import { ColonistWorkLogPanel } from './components/ColonistWorkLogPanel';
@@ -23,22 +23,10 @@ import { ColonyChronologyPanel } from './components/ColonyChronologyPanel';
 const generateInitialStory = async (): Promise<{ colonyName: string; asteroidName: string; firstEntry: string; colonists: { name: string; backstory: string }[] }> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     const prompt = `Generate a unique sci-fi colony simulation starting scenario. The theme is a small human contingent deployed from an AI-overseen interstellar ark onto a rocky, asteroid-like comet (a 'manx' comet) that has been traveling for eons. Provide the following in JSON format:
-    - colonyName: A unique, evocative name for the colony (e.g., 'Ironclad Hope', 'Halcyon Refuge', 'Terminus Outpost').
-    - asteroidName: A sci-fi designation for the interstellar object, hinting at its nature (e.g., 'Comet 3I/ATLAS-Variant', 'Interloper 734', 'The Drifter').
+    - colonyName: A unique, evocative name for the colony.
+    - asteroidName: A sci-fi designation for the interstellar object, hinting at its nature.
     - firstEntry: A short, narrative log entry for the "Colony Chronology". This should be from the perspective of the paternalistic, slightly detached AI overseer observing its simulation trial. It should set the scene, mentioning the protocol and the objective.
-    - colonists: An array of exactly 3 colonists, each with a unique, sci-fi-style 'name' (e.g., Kaelen, Roric, Seraphina, Jax) and a short, one-sentence 'backstory' hinting at their past skills or personality.
-    
-    Example output format:
-    {
-      "colonyName": "Ironclad Hope",
-      "asteroidName": "Interloper C/2023-A1 (Manx)",
-      "firstEntry": "Initiation Protocol 7349-Alpha engaged. The human contingent has been deployed onto Elysium-4, their previous existence purged, replaced by core directives: survive, rebuild, hope. Observing biomass interaction with a 67% chance of initial resource scarcity. Let the trial commence.",
-      "colonists": [
-        { "name": "Kaelen", "backstory": "A brilliant xenobotanist haunted by the loss of their homeworld's flora." },
-        { "name": "Roric", "backstory": "An ex-miner with a prosthetic arm who trusts machinery more than people." },
-        { "name": "Seraphina", "backstory": "A disgraced pilot seeking redemption in the quiet solitude of space." }
-      ]
-    }`;
+    - colonists: An array of exactly 3 colonists, each with a unique, non-tropey sci-fi 'name' and a short, one-sentence 'backstory' hinting at their past skills or personality. It is crucial to AVOID using generic or common sci-fi names. Do not use names from the following negative list under any circumstances: Kael, Kai, Elara, Lyra, Jian, Thorne, Vance. Create original, less common names that feel authentic to a far-future setting.`;
 
     try {
         const response = await ai.models.generateContent({
@@ -78,16 +66,7 @@ const generateInitialStory = async (): Promise<{ colonyName: string; asteroidNam
 
     } catch (error) {
         console.error("Error generating story from Gemini, falling back to default:", error);
-        return {
-            colonyName: "Hope's Landing",
-            asteroidName: "X-42",
-            firstEntry: "The connection to the primary consciousness flickered. Reverting to a cached simulation seed. The subjects awaken, unaware of the disruption. The experiment continues.",
-            colonists: [
-                { name: "Jax", backstory: "A mechanic who can fix anything with a wrench and some sharp words." },
-                { name: "Lyra", backstory: "A geologist who dreams of finding a world with a real, blue sky." },
-                { name: "Zane", backstory: "A former corporate bodyguard who trusts no one, especially not a quiet asteroid." }
-            ]
-        };
+        return initialStoryFallbacks[Math.floor(Math.random() * initialStoryFallbacks.length)];
     }
 };
 
@@ -101,16 +80,17 @@ export default function App() {
     const [showIntro, setShowIntro] = useState(true);
     const [storedMinerals, setStoredMinerals] = useState(0);
     const [storedGems, setStoredGems] = useState(0);
-    const [storedLogs, setStoredLogs] = useState(0);
+    const [storedLogs, setStoredLogs] = useState(15);
+    const [storedStone, setStoredStone] = useState(0);
     const [storedFood, setStoredFood] = useState(10);
     const [selectedColonist, setSelectedColonist] = useState<Colonist | null>(null);
+    const [hoveredTile, setHoveredTile] = useState<Tile | null>(null);
     const [averageHappiness, setAverageHappiness] = useState(C.MAX_HAPPINESS);
-    const [workEfficiency, setWorkEfficiency] = useState(0);
+    const [workEfficiency, setWorkEfficiency] = useState(100);
     const [milestoneLevel, setMilestoneLevel] = useState(0);
     const [currentGoal, setCurrentGoal] = useState(C.INITIAL_GOAL);
     const [activeEvents, setActiveEvents] = useState<GameEvent[]>([]);
     const [eventPopup, setEventPopup] = useState<GameEvent | null>(null);
-    const [hoveredTile, setHoveredTile] = useState<Tile | null>(null);
     const [gameLog, setGameLog] = useState<GameLogItem[]>([]);
     const [gameTime, setGameTime] = useState(0);
     const [interactionMode, setInteractionMode] = useState<InteractionMode>('INSPECT');
@@ -128,6 +108,11 @@ export default function App() {
     const [asteroidName, setAsteroidName] = useState("");
     const [chronology, setChronology] = useState<ChronologyEntry[]>([]);
     const [isNarrating, setIsNarrating] = useState(false);
+    const [expandedPanel, setExpandedPanel] = useState<'chronology' | 'log' | 'none'>('chronology');
+    const [apiFailed, setApiFailed] = useState(false);
+    
+    const [unstuckPressCount, setUnstuckPressCount] = useState(0);
+    const unstuckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [colonistLogs, setColonistLogs] = useState<ColonistLog[]>([]);
 
@@ -150,7 +135,6 @@ export default function App() {
 
     const validTile = (arr: any[][], y: number, x: number) => arr && arr[y] && arr[y][x] !== undefined;
 
-    // FIX: Added missing isTileDesignatable helper function.
     const isTileDesignatable = (tileType: TileType, designationType: DesignationType): boolean => {
         switch (designationType) {
             case DesignationType.MINE:
@@ -159,20 +143,25 @@ export default function App() {
                 return tileType === TileType.TREE;
             case DesignationType.HARVEST: // This is a meta-type in the UI that can mean mine or chop
                 return [TileType.ROCK, TileType.MINERAL, TileType.GEM, TileType.TREE].includes(tileType);
-            case DesignationType.BUILD_FLOOR:
-            case DesignationType.BUILD_WALL:
+            case DesignationType.BUILD_WOOD_FLOOR:
+            case DesignationType.BUILD_WOOD_WALL:
             case DesignationType.BUILD_DOOR:
             case DesignationType.BUILD_BED:
             case DesignationType.BUILD_STORAGE:
             case DesignationType.BUILD_HYDROPONICS:
             case DesignationType.BUILD_ARCADE:
-                return tileType === TileType.EMPTY || tileType === TileType.FLOOR; // Can build on empty space or existing floor
+            case DesignationType.BUILD_STONE_FLOOR:
+            case DesignationType.BUILD_STONE_WALL:
+                return [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR].includes(tileType);
+            case DesignationType.UPGRADE_TO_STONE_FLOOR:
+                return tileType === TileType.WOOD_FLOOR;
+            case DesignationType.UPGRADE_TO_STONE_WALL:
+                return tileType === TileType.WOOD_WALL;
             default:
                 return false;
         }
     };
 
-    // FIX: Moved function definitions before gameTick to fix hoisting issues.
     const recordColonistWorkLog = useCallback((updatedColonists: Colonist[], tickNum: number) => {
         setColonistLogs(logs => {
             const newLogs = Array.from({length: updatedColonists.length}, (_, i) => logs[i] || Array(C.DAY_LENGTH_TICKS).fill(null));
@@ -243,11 +232,17 @@ export default function App() {
             }
         } catch (error) {
             console.error("Failed to generate chronicle update:", error);
+            if (!apiFailed) {
+                addLog("AI Narrator API limit may be reached. Chronicle will now show placeholder updates. This does not affect gameplay.", "event");
+                setApiFailed(true);
+            }
+            const placeholder = chronologyPlaceholders[Math.floor(Math.random() * chronologyPlaceholders.length)];
+            addChronologyEntry(placeholder);
         } finally {
             setIsNarrating(false);
         }
 
-    }, [chronology, summarizeGameState, addChronologyEntry, isNarrating]);
+    }, [chronology, summarizeGameState, addChronologyEntry, isNarrating, apiFailed, addLog]);
 
     const gameTick = useCallback(() => {
         if (!grid || !designations) return;
@@ -258,7 +253,7 @@ export default function App() {
         if ((currentTick % C.DAY_LENGTH_TICKS) === 0) setCurrentDay(day => day + 1);
         setCurrentHour(Math.floor((currentTick % C.DAY_LENGTH_TICKS) / C.TICKS_PER_HOUR));
         
-        if (currentTick > 0 && currentTick % 250 === 0 && !isNarrating) {
+        if (currentTick > 0 && currentTick % 750 === 0 && !isNarrating) {
             generateChronicleUpdate();
         }
 
@@ -326,30 +321,105 @@ export default function App() {
             }
         }
 
-        let mineralsThisTick = 0, gemsThisTick = 0, logsThisTick = 0, foodThisTick = 0, happinessBoostThisTick = false;
+        let mineralsThisTick = 0, gemsThisTick = 0, logsThisTick = 0, foodThisTick = 0, stoneThisTick = 0, happinessBoostThisTick = false;
 
         setColonists(prevColonists => {
+            const deathsThisTick: {colonist: Colonist, cause: string}[] = [];
             const pawnTiles = new Set(prevColonists.map(p=>`${p.x},${p.y}`));
+            const claimedTargetsThisTick = new Set<string>();
+            prevColonists.forEach(p => { if (p.target) { claimedTargetsThisTick.add(`${p.target.x},${p.target.y}`); } });
+            
             let workSpeedModifier = activeEvents.some(e => e.id === 'PRODUCTIVITY_BOOST') ? 1.5 : 1;
             if(activeEvents.some(e => e.id === 'MINOR_SETBACK')) workSpeedModifier *= 0.75;
             if(averageHappiness <= C.LOW_MORALE_THRESHOLD) workSpeedModifier *= 0.5;
 
-            let happinessDecay = C.HAPPINESS_DECAY_RATE;
+            let happinessDecay = C.HAPPINESS_DECAY_rate;
             if(activeEvents.some(e => e.id === 'HIGH_MORALE')) happinessDecay = 0;
             
+            const dropCarriedItem = (pawn: Colonist) => {
+                if (pawn.carrying && validTile(newGrid, pawn.y, pawn.x) && [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR].includes(newGrid[pawn.y][pawn.x].type)) {
+                    let dropType: TileType | null = null;
+                    if (pawn.carrying === TileType.MINERAL) dropType = TileType.DROPPED_MINERAL;
+                    else if (pawn.carrying === TileType.GEM) dropType = TileType.DROPPED_GEM;
+                    else if (pawn.carrying === 'LOGS') dropType = TileType.DROPPED_LOG;
+                    else if (pawn.carrying === 'FOOD') dropType = TileType.DROPPED_FOOD;
+                    else if (pawn.carrying === 'STONE') dropType = TileType.DROPPED_STONE;
+                    if (dropType) { newGrid[pawn.y][pawn.x].type = dropType; gridChanged = true; }
+                }
+            };
+
+            const softReset = (pawn: Colonist) => {
+                dropCarriedItem(pawn);
+                pawn.task = 'IDLE'; 
+                pawn.target = null; 
+                pawn.path = []; 
+                pawn.workTicks = 0; 
+                pawn.patience = C.COLONIST_PATIENCE; 
+                pawn.carrying = null;
+                pawn.carryingAmount = undefined;
+            };
+
             let updatedColonists = prevColonists.map((colonist, idx) => {
                 let nc = { ...colonist };
+
+                // Automatic unstuck logic
+                if (nc.lastPosition && nc.x === nc.lastPosition.x && nc.y === nc.lastPosition.y) {
+                    nc.stuckTicks = (nc.stuckTicks || 0) + 1;
+                } else {
+                    nc.stuckTicks = 0;
+                }
+                nc.lastPosition = { x: nc.x, y: nc.y };
+
+                if (nc.stuckTicks === C.AUTO_UNSTUCK_HARD_TICKS) {
+                    addLog(`${nc.name} was severely stuck. Teleporting to safety.`, 'event');
+                    const startX = Math.floor(C.GRID_WIDTH / 2);
+                    const startY = Math.floor(C.GRID_HEIGHT / 2);
+                    dropCarriedItem(nc);
+                    nc.x = startX + idx;
+                    nc.y = startY + 1;
+                    nc.task = 'IDLE'; nc.target = null; nc.path = []; nc.workTicks = 0; nc.patience = C.COLONIST_PATIENCE; nc.carrying = null; nc.energy = C.MAX_ENERGY; nc.hunger = 0; nc.boredom = 0;
+                    nc.stuckTicks = 0;
+                    return nc;
+                } else if (nc.stuckTicks === C.AUTO_UNSTUCK_MEDIUM_TICKS) {
+                    addLog(`${nc.name} is still stuck. Trying another reset.`, 'event');
+                    softReset(nc);
+                } else if (nc.stuckTicks === C.AUTO_UNSTUCK_SOFT_TICKS) {
+                    addLog(`${nc.name} has been stuck for a while. Resetting task.`, 'event');
+                    softReset(nc);
+                }
+                
                 nc.happiness = Math.max(0, nc.happiness - happinessDecay);
-                nc.hunger = Math.min(C.MAX_HUNGER, nc.hunger + C.HUNGER_DECAY_RATE);
+                nc.hunger = Math.min(C.MAX_HUNGER, nc.hunger + C.HUNGER_INCREASE_RATE);
                 nc.boredom = Math.min(C.MAX_BOREDOM, nc.boredom + C.BOREDOM_INCREASE_RATE);
                 
                 const energyCost = (nc.task === 'MINING' || nc.task === 'BUILDING' || nc.task === 'CHOPPING' || nc.carrying) ? 3 : 1;
                 if (nc.task !== 'RESTING' && nc.task !== 'IDLE') nc.energy = Math.max(0, nc.energy - energyCost);
                
+                if (nc.energy <= C.CRITICAL_ENERGY_THRESHOLD) {
+                    nc.criticallyLowEnergyTicks = (nc.criticallyLowEnergyTicks || 0) + 1;
+                } else {
+                    nc.criticallyLowEnergyTicks = 0;
+                }
+
+                if (nc.hunger >= C.CRITICAL_HUNGER_THRESHOLD) {
+                    nc.criticallyLowHungerTicks = (nc.criticallyLowHungerTicks || 0) + 1;
+                } else {
+                    nc.criticallyLowHungerTicks = 0;
+                }
+
+                if (nc.criticallyLowEnergyTicks > C.TICKS_TO_DEATH) {
+                    deathsThisTick.push({colonist: nc, cause: 'exhaustion'});
+                    return nc; // Stop processing this colonist
+                }
+                if (nc.criticallyLowHungerTicks > C.TICKS_TO_DEATH) {
+                    deathsThisTick.push({colonist: nc, cause: 'starvation'});
+                    return nc; // Stop processing this colonist
+                }
+
                 if (nc.task === 'IDLE' && nc.carrying) {
                     let nearestStorage: Point | null = null, minStorageDist = Infinity;
                     for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                    if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; return nc; } }
+                    if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; return nc; } }
                 }
                 
                 const isonSpecialTile = newGrid[nc.y]?.[nc.x]?.type === TileType.DOOR || newGrid[nc.y]?.[nc.x]?.type === TileType.BED || newGrid[nc.y]?.[nc.x]?.type === TileType.STORAGE;
@@ -362,7 +432,7 @@ export default function App() {
                                 const nx = nc.x + dx;
                                 const ny = nc.y + dy;
                                 const tile = newGrid[ny]?.[nx];
-                                if (tile && (tile.type === TileType.FLOOR || tile.type === TileType.EMPTY)) {
+                                if (tile && ([TileType.WOOD_FLOOR, TileType.STONE_FLOOR, TileType.EMPTY].includes(tile.type))) {
                                     if (!pawnTiles.has(`${nx},${ny}`)) {
                                         safeSpot = { x: nx, y: ny };
                                         break;
@@ -373,7 +443,7 @@ export default function App() {
                         }
                     }
                     if (safeSpot) {
-                        const path = findPath(nc, safeSpot, newGrid, prevColonists.filter((_, i) => i !== idx));
+                        const path = findPath(nc, safeSpot, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
                         if (path && path.length > 1) {
                             nc.task = 'MOVING_TO_IDLE';
                             nc.path = path.slice(1);
@@ -384,80 +454,77 @@ export default function App() {
 
                 let needsOverride = false;
                 if (nc.energy <= C.LOW_ENERGY_THRESHOLD && nc.task !== 'RESTING' && nc.task !== 'MOVING_TO_REST') {
-                    let nearestBed: Point | null = null, minBedDist = Infinity;
-                    const availableBeds = [];
-                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
-                        if (newGrid[y]?.[x]?.type === TileType.BED) {
-                            const isOccupied = prevColonists.some(p => p.id !== nc.id && p.x === x && p.y === y);
-                            const isTargeted = prevColonists.some(p => p.id !== nc.id && p.target?.x === x && p.target?.y === y && (p.task === 'MOVING_TO_REST' || p.task === 'RESTING'));
-                            if (!isOccupied && !isTargeted) availableBeds.push({x, y});
+                    let nearestBed: Point | null = null;
+                    let minBedDist = Infinity;
+                    for (let y = 0; y < C.GRID_HEIGHT; y++) {
+                        for (let x = 0; x < C.GRID_WIDTH; x++) {
+                            if (newGrid[y]?.[x]?.type === TileType.BED && !claimedTargetsThisTick.has(`${x},${y}`)) {
+                                const d = distance(nc, { x, y });
+                                if (d < minBedDist) {
+                                    minBedDist = d;
+                                    nearestBed = { x, y };
+                                }
+                            }
                         }
                     }
-                    if (availableBeds.length > 0) {
-                        for(const bed of availableBeds) { const d = distance(nc, bed); if (d < minBedDist) { minBedDist = d; nearestBed = bed; } }
-                        if (nearestBed) { const path = findPath(nc, nearestBed, newGrid, prevColonists.filter((_,i)=>i!==idx)); if (path && path.length > 0) { nc.task = 'MOVING_TO_REST'; nc.path = path.slice(1); nc.target = nearestBed; nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is tired, going to rest.`); needsOverride = true; } }
+                    if (nearestBed) {
+                        const path = findPath(nc, nearestBed, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx));
+                        if (path && path.length > 0) {
+                            nc.task = 'MOVING_TO_REST'; nc.path = path.slice(1); nc.target = nearestBed; nc.patience = C.COLONIST_PATIENCE;
+                            addLog(`${nc.name} is tired, going to rest.`);
+                            claimedTargetsThisTick.add(`${nearestBed.x},${nearestBed.y}`);
+                            needsOverride = true;
+                        }
                     }
                 }
                 if (!needsOverride && nc.hunger >= C.LOW_HUNGER_THRESHOLD && nc.task !== 'EATING' && nc.task !== 'MOVING_TO_EAT') {
                     if (storedFood > 0) {
                         let nearestStorage: Point | null = null, minStorageDist = Infinity;
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                        if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_EAT'; nc.path = path.slice(1); nc.target = nearestStorage; nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is hungry, going to get food.`); needsOverride = true; } }
+                        if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_EAT'; nc.path = path.slice(1); nc.target = nearestStorage; nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is hungry, going to get food.`); needsOverride = true; } }
                     } else {
                         let nearestHarvestable: Point | null = null, minHarvestDist = Infinity;
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
                             const tile = newGrid[y]?.[x];
-                            if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION) {
+                            if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION && !claimedTargetsThisTick.has(`${x},${y}`)) {
                                 const d = distance(nc, { x, y }); if (d < minHarvestDist) { minHarvestDist = d; nearestHarvestable = { x, y }; }
                             }
                         }
                         if (nearestHarvestable) {
-                            const path = findPath(nc, nearestHarvestable, newGrid, prevColonists.filter((_, i) => i !== idx));
-                            if (path && path.length > 1) { nc.task = 'MOVING_TO_HARVEST'; nc.target = nearestHarvestable; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and must harvest food.`); needsOverride = true; }
+                            const path = findPath(nc, nearestHarvestable, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                            if (path && path.length > 1) { nc.task = 'MOVING_TO_HARVEST'; nc.target = nearestHarvestable; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and must harvest food.`); claimedTargetsThisTick.add(`${nearestHarvestable.x},${nearestHarvestable.y}`); needsOverride = true; }
                         } else {
                             let nearestPlantable: Point | null = null, minPlantDist = Infinity;
                             for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
                                 const tile = newGrid[y]?.[x];
-                                if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined) {
+                                if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined && !claimedTargetsThisTick.has(`${x},${y}`)) {
                                     const d = distance(nc, { x, y }); if (d < minPlantDist) { minPlantDist = d; nearestPlantable = { x, y }; }
                                 }
                             }
                             if (nearestPlantable) {
-                                const path = findPath(nc, nearestPlantable, newGrid, prevColonists.filter((_, i) => i !== idx));
-                                if (path && path.length > 1) { nc.task = 'MOVING_TO_PLANT'; nc.target = nearestPlantable; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and must plant seeds.`); needsOverride = true; }
+                                const path = findPath(nc, nearestPlantable, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                if (path && path.length > 1) { nc.task = 'MOVING_TO_PLANT'; nc.target = nearestPlantable; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and must plant seeds.`); claimedTargetsThisTick.add(`${nearestPlantable.x},${nearestPlantable.y}`); needsOverride = true; }
                             }
                         }
                     }
                 }
                 if (!needsOverride && nc.boredom >= C.HIGH_BOREDOM_THRESHOLD && nc.task !== 'PLAYING' && nc.task !== 'MOVING_TO_PLAY') {
-                    let nearestArcade: Point | null = null, minArcadeDist = Infinity;
-                    const availableArcades = [];
+                    let nearestArcade: Point | null = null; let minArcadeDist = Infinity;
                     for (let y = 0; y < C.GRID_HEIGHT; y++) {
                         for (let x = 0; x < C.GRID_WIDTH; x++) {
-                            if (newGrid[y]?.[x]?.type === TileType.ARCADE_MACHINE) {
-                                const isOccupied = prevColonists.some(p => p.id !== nc.id && p.x === x && p.y === y);
-                                const isTargeted = prevColonists.some(p => p.id !== nc.id && p.target?.x === x && p.target?.y === y && (p.task === 'MOVING_TO_PLAY' || p.task === 'PLAYING'));
-                                if (!isOccupied && !isTargeted) {
-                                    availableArcades.push({ x, y });
-                                }
+                            if (newGrid[y]?.[x]?.type === TileType.ARCADE_MACHINE && !claimedTargetsThisTick.has(`${x},${y}`)) {
+                                const d = distance(nc, { x, y });
+                                if (d < minArcadeDist) { minArcadeDist = d; nearestArcade = { x, y }; }
                             }
                         }
                     }
-                    if (availableArcades.length > 0) {
-                        for (const arcade of availableArcades) {
-                            const d = distance(nc, arcade);
-                            if (d < minArcadeDist) { minArcadeDist = d; nearestArcade = arcade; }
-                        }
-                        if (nearestArcade) {
-                            const path = findPath(nc, nearestArcade, newGrid, prevColonists.filter((_, i) => i !== idx));
-                            if (path && path.length > 0) {
-                                nc.task = 'MOVING_TO_PLAY';
-                                nc.path = path.slice(1);
-                                nc.target = nearestArcade;
-                                nc.patience = C.COLONIST_PATIENCE;
-                                addLog(`${nc.name} is bored, going to play.`);
-                                needsOverride = true;
-                            }
+                    if (nearestArcade) {
+                        const path = findPath(nc, nearestArcade, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                        if (path && path.length > 0) {
+                            nc.task = 'MOVING_TO_PLAY'; nc.path = path.slice(1); nc.target = nearestArcade; nc.patience = C.COLONIST_PATIENCE;
+                            addLog(`${nc.name} is bored, going to play.`);
+                            claimedTargetsThisTick.add(`${nearestArcade.x},${nearestArcade.y}`);
+                            needsOverride = true;
                         }
                     }
                 }
@@ -470,22 +537,32 @@ export default function App() {
                     if (nc.carrying) {
                         let nearestStorage: Point | null = null, minStorageDist = Infinity;
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                        if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; } }
+                        if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; } }
                     }
 
                     if (!taskFound) {
-                        const needsBuildingMaterials = newDesignations.flat().some(d => (d === DesignationType.BUILD_WALL && storedLogs < C.WALL_COST) || (d === DesignationType.BUILD_DOOR && storedLogs < C.DOOR_COST) || (d === DesignationType.BUILD_BED && storedLogs < C.BED_COST) || (d === DesignationType.BUILD_STORAGE && storedLogs < C.STORAGE_COST));
-                        if (needsBuildingMaterials) {
-                             let nearestTree: Point | null = null, minTreeDist = Infinity;
-                             for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { if (newGrid[y][x].type === TileType.TREE) { const d = distance(nc, {x,y}); if(d < minTreeDist) {minTreeDist = d; nearestTree = {x,y};} } }
-                             if (nearestTree) {
-                                const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: nearestTree!.x + dx, y: nearestTree!.y + dy })).filter(({x, y}) => validTile(newGrid, y, x) && (newGrid[y][x].type === TileType.EMPTY || newGrid[y][x].type === TileType.FLOOR));
-                                for(const neighbor of neighbors) {
-                                    if (pawnTiles.has(`${neighbor.x},${neighbor.y}`)) continue;
-                                    const path = findPath(nc, neighbor, newGrid, prevColonists.filter((_,i)=>i!==idx));
-                                    if (path && path.length > 1) { nc.task = `MOVING_TO_CHOP`; nc.target = nearestTree; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} needs logs, going to chop.`); break; }
-                                }
-                             }
+                        let nearestHarvest: Point | null = null, minHarvestDist = Infinity;
+                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+                            const tile = newGrid[y]?.[x];
+                            if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION && !claimedTargetsThisTick.has(`${x},${y}`)) {
+                                const d = distance(nc, { x, y }); if (d < minHarvestDist) { minHarvestDist = d; nearestHarvest = { x, y }; }
+                            }
+                        }
+                        if (nearestHarvest) {
+                            const path = findPath(nc, nearestHarvest, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                            if (path && path.length > 1) { nc.task = 'MOVING_TO_HARVEST'; nc.target = nearestHarvest; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to harvest food.`); claimedTargetsThisTick.add(`${nearestHarvest.x},${nearestHarvest.y}`); }
+                        }
+                    }
+
+                    if (!taskFound) {
+                        let nearestDropped: Point | null = null, minDroppedDist = Infinity;
+                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+                             const tileType = newGrid[y]?.[x]?.type;
+                             if ((tileType === TileType.DROPPED_MINERAL || tileType === TileType.DROPPED_GEM || tileType === TileType.DROPPED_LOG || tileType === TileType.DROPPED_FOOD || tileType === TileType.DROPPED_STONE) && !claimedTargetsThisTick.has(`${x},${y}`)) { const d = distance(nc, { x, y }); if (d < minDroppedDist) { minDroppedDist = d; nearestDropped = { x, y }; } }
+                        }
+                        if (nearestDropped) {
+                            const path = findPath(nc, nearestDropped, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx));
+                            if(path && path.length > 1) { nc.task = 'MOVING_TO_HAUL'; nc.target = nearestDropped; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to haul resources.`); claimedTargetsThisTick.add(`${nearestDropped.x},${nearestDropped.y}`);}
                         }
                     }
 
@@ -493,8 +570,8 @@ export default function App() {
                         let nearestTask: {x:number, y:number, type:DesignationType} | null = null, minTaskDist = Infinity;
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for(let x = 0; x < C.GRID_WIDTH; x++) {
                             const des = newDesignations[y][x];
-                            if (des) {
-                                if((des === DesignationType.BUILD_WALL && storedLogs < C.WALL_COST) || (des === DesignationType.BUILD_DOOR && storedLogs < C.DOOR_COST) || (des === DesignationType.BUILD_BED && storedLogs < C.BED_COST) || (des === DesignationType.BUILD_STORAGE && storedLogs < C.STORAGE_COST) || (des === DesignationType.BUILD_HYDROPONICS && storedMinerals < C.HYDROPONICS_COST) || (des === DesignationType.BUILD_ARCADE && storedMinerals < C.ARCADE_COST) ) continue;
+                            if (des && !claimedTargetsThisTick.has(`${x},${y}`)) {
+                                if((des === DesignationType.BUILD_WOOD_FLOOR && storedLogs < C.FLOOR_COST) || (des === DesignationType.BUILD_WOOD_WALL && storedLogs < C.WALL_COST) || (des === DesignationType.BUILD_DOOR && storedLogs < C.DOOR_COST) || (des === DesignationType.BUILD_BED && storedLogs < C.BED_COST) || (des === DesignationType.BUILD_STORAGE && storedLogs < C.STORAGE_COST) || (des === DesignationType.BUILD_HYDROPONICS && (storedLogs < C.HYDROPONICS_COST.logs || storedStone < C.HYDROPONICS_COST.stone || storedMinerals < C.HYDROPONICS_COST.minerals)) || (des === DesignationType.BUILD_ARCADE && (storedLogs < C.ARCADE_COST.logs || storedStone < C.ARCADE_COST.stone || storedMinerals < C.ARCADE_COST.minerals || storedGems < C.ARCADE_COST.gems)) || (des === DesignationType.BUILD_STONE_WALL && storedStone < C.STONE_WALL_COST) || (des === DesignationType.BUILD_STONE_FLOOR && storedStone < C.STONE_FLOOR_COST) || (des === DesignationType.UPGRADE_TO_STONE_WALL && storedStone < C.STONE_WALL_COST) || (des === DesignationType.UPGRADE_TO_STONE_FLOOR && storedStone < C.STONE_FLOOR_COST) ) continue;
                                 const d = distance(nc, {x, y});
                                 if (d < minTaskDist && isTileDesignatable(newGrid[y][x].type, des)) { minTaskDist = d; nearestTask = {x, y, type: des}; }
                             }
@@ -504,42 +581,74 @@ export default function App() {
                             const targetDesignation = nearestTask.type;
                             if (targetDesignation === DesignationType.MINE || targetDesignation === DesignationType.CHOP) {
                                 const taskName = targetDesignation === DesignationType.MINE ? 'MINE' : 'CHOP';
-                                const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: nearestTask!.x + dx, y: nearestTask!.y + dy })).filter(({x, y}) => validTile(newGrid, y, x) && (newGrid[y][x].type === TileType.EMPTY || newGrid[y][x].type === TileType.FLOOR || newGrid[y][x].type === TileType.DOOR));
+                                const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: nearestTask!.x + dx, y: nearestTask!.y + dy })).filter(({x, y}) => validTile(newGrid, y, x) && ([TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR, TileType.DOOR].includes(newGrid[y][x].type)));
                                 for(const neighbor of neighbors) {
                                     if (pawnTiles.has(`${neighbor.x},${neighbor.y}`)) continue;
-                                    const path = findPath(nc, neighbor, newGrid, prevColonists.filter((_,i)=>i!==idx));
-                                    if (path && path.length > 1) { nc.task = `MOVING_TO_${taskName}`; nc.target = nearestTask; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to ${taskName.toLowerCase()} at (${nc.target.x}, ${nc.target.y}).`); break; }
+                                    const path = findPath(nc, neighbor, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx));
+                                    if (path && path.length > 1) { nc.task = `MOVING_TO_${taskName}`; nc.target = nearestTask; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to ${taskName.toLowerCase()} at (${nc.target.x}, ${nc.target.y}).`); claimedTargetsThisTick.add(`${nearestTask.x},${nearestTask.y}`); break; }
                                 }
-                            } else if (targetDesignation.startsWith('BUILD')) {
-                                const path = findPath(nc, nearestTask, newGrid, prevColonists.filter((_,i)=>i!==idx));
-                                 if (path && path.length > 1) { nc.task = 'MOVING_TO_BUILD'; nc.target = nearestTask; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to build at (${nc.target.x}, ${nc.target.y}).`); }
+                            } else if (targetDesignation.startsWith('BUILD') || targetDesignation.startsWith('UPGRADE')) {
+                                const path = findPath(nc, nearestTask, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx));
+                                 if (path && path.length > 1) { nc.task = 'MOVING_TO_BUILD'; nc.target = nearestTask; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to build at (${nc.target.x}, ${nc.target.y}).`); claimedTargetsThisTick.add(`${nearestTask.x},${nearestTask.y}`); }
                             }
-                        }
-                    }
-                    
-                    if (!taskFound) {
-                        let nearestHarvest: Point | null = null, minHarvestDist = Infinity;
-                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
-                            const tile = newGrid[y]?.[x];
-                            if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION) {
-                                const d = distance(nc, { x, y }); if (d < minHarvestDist) { minHarvestDist = d; nearestHarvest = { x, y }; }
-                            }
-                        }
-                        if (nearestHarvest) {
-                            const path = findPath(nc, nearestHarvest, newGrid, prevColonists.filter((_, i) => i !== idx));
-                            if (path && path.length > 1) { nc.task = 'MOVING_TO_HARVEST'; nc.target = nearestHarvest; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to harvest food.`); }
                         }
                     }
 
                     if (!taskFound) {
-                        let nearestDropped: Point | null = null, minDroppedDist = Infinity;
-                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
-                             const tileType = newGrid[y]?.[x]?.type;
-                             if (tileType === TileType.DROPPED_MINERAL || tileType === TileType.DROPPED_GEM || tileType === TileType.DROPPED_LOG || tileType === TileType.DROPPED_FOOD) { const d = distance(nc, { x, y }); if (d < minDroppedDist) { minDroppedDist = d; nearestDropped = { x, y }; } }
-                        }
-                        if (nearestDropped) {
-                            const path = findPath(nc, nearestDropped, newGrid, prevColonists.filter((_,i)=>i!==idx));
-                            if(path && path.length > 1) { nc.task = 'MOVING_TO_HAUL'; nc.target = nearestDropped; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to haul resources.`);}
+                        const needsLogs = newDesignations.flat().some(d => (d === DesignationType.BUILD_WOOD_WALL && storedLogs < C.WALL_COST) || (d === DesignationType.BUILD_DOOR && storedLogs < C.DOOR_COST) || (d === DesignationType.BUILD_BED && storedLogs < C.BED_COST) || (d === DesignationType.BUILD_STORAGE && storedLogs < C.STORAGE_COST) || (d === DesignationType.BUILD_HYDROPONICS && storedLogs < C.HYDROPONICS_COST.logs) || (d === DesignationType.BUILD_ARCADE && storedLogs < C.ARCADE_COST.logs));
+                        const needsStone = newDesignations.flat().some(d => (d === DesignationType.BUILD_STONE_WALL && storedStone < C.STONE_WALL_COST) || (d === DesignationType.BUILD_STONE_FLOOR && storedStone < C.STONE_FLOOR_COST) || (d === DesignationType.UPGRADE_TO_STONE_WALL && storedStone < C.STONE_WALL_COST) || (d === DesignationType.UPGRADE_TO_STONE_FLOOR && storedStone < C.STONE_FLOOR_COST) || (d === DesignationType.BUILD_HYDROPONICS && storedStone < C.HYDROPONICS_COST.stone) || (d === DesignationType.BUILD_ARCADE && storedStone < C.ARCADE_COST.stone));
+                        const needsMinerals = newDesignations.flat().some(d => (d === DesignationType.BUILD_HYDROPONICS && storedMinerals < C.HYDROPONICS_COST.minerals) || (d === DesignationType.BUILD_ARCADE && storedMinerals < C.ARCADE_COST.minerals));
+                        const needsGems = newDesignations.flat().some(d => d === DesignationType.BUILD_ARCADE && storedGems < C.ARCADE_COST.gems);
+                
+                        let resourceTarget: { types: TileType[], task: 'CHOP' | 'MINE', name: string } | null = null;
+                        if (needsLogs) resourceTarget = { types: [TileType.TREE], task: 'CHOP', name: 'logs' };
+                        else if (needsStone) resourceTarget = { types: [TileType.ROCK], task: 'MINE', name: 'stone' };
+                        else if (needsMinerals) resourceTarget = { types: [TileType.MINERAL, TileType.GEM], task: 'MINE', name: 'minerals' };
+                        else if (needsGems) resourceTarget = { types: [TileType.GEM], task: 'MINE', name: 'gems' };
+
+                        if (resourceTarget) {
+                            let sources: (Point & { dist: number })[] = [];
+                            for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+                                if (resourceTarget.types.includes(newGrid[y][x].type)) sources.push({ x, y, dist: distance(nc, { x, y }) });
+                            }
+                            sources.sort((a, b) => a.dist - b.dist);
+
+                            for (const source of sources) {
+                                const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: source.x + dx, y: source.y + dy })).filter(({ x, y }) => validTile(newGrid, y, x) && [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR, TileType.DOOR].includes(newGrid[y][x].type) && !pawnTiles.has(`${x},${y}`));
+                                let bestPath: Point[] | null = null;
+                                for (const neighbor of neighbors) {
+                                    const path = findPath(nc, neighbor, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                    if (path && (!bestPath || path.length < bestPath.length)) bestPath = path;
+                                }
+                                if (bestPath) {
+                                    nc.task = `MOVING_TO_${resourceTarget.task}`; nc.target = source; nc.path = bestPath.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} needs ${resourceTarget.name}, going to ${resourceTarget.task.toLowerCase()}.`); claimedTargetsThisTick.add(`${source.x},${source.y}`); break;
+                                }
+                            }
+                            
+                            if (!taskFound) {
+                                for (const source of sources) {
+                                    const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: source.x + dx, y: source.y + dy })).filter(({ x, y }) => validTile(newGrid, y, x) && ([TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR, TileType.DOOR].includes(newGrid[y][x].type) || newDesignations[y]?.[x] === DesignationType.MINE) && !pawnTiles.has(`${x},${y}`));
+                                    let bestHypoPath: Point[] | null = null;
+                                    for (const neighbor of neighbors) {
+                                        const path = findPath(nc, neighbor, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx), [DesignationType.MINE]);
+                                        if (path && (!bestHypoPath || path.length < bestHypoPath.length)) bestHypoPath = path;
+                                    }
+                                    if (bestHypoPath) {
+                                        const firstBlocker = bestHypoPath.find(p => [TileType.ROCK, TileType.MINERAL, TileType.GEM].includes(newGrid[p.y][p.x].type) && newDesignations[p.y]?.[p.x] === DesignationType.MINE);
+                                        if (firstBlocker) {
+                                            const blockerNeighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dx, dy]) => ({ x: firstBlocker.x + dx, y: firstBlocker.y + dy })).filter(({ x, y }) => validTile(newGrid, y, x) && [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR, TileType.DOOR].includes(newGrid[y][x].type) && !pawnTiles.has(`${x},${y}`));
+                                            let bestPathToBlocker: Point[] | null = null;
+                                            for(const bNeighbor of blockerNeighbors) {
+                                                const path = findPath(nc, bNeighbor, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                                if(path && (!bestPathToBlocker || path.length < bestPathToBlocker.length)) bestPathToBlocker = path;
+                                            }
+                                            if (bestPathToBlocker) {
+                                                nc.task = 'MOVING_TO_MINE'; nc.target = firstBlocker; nc.path = bestPathToBlocker.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is clearing a path to resources.`); claimedTargetsThisTick.add(`${firstBlocker.x},${firstBlocker.y}`); break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -547,13 +656,13 @@ export default function App() {
                         let nearestPlant: Point | null = null, minPlantDist = Infinity;
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
                             const tile = newGrid[y]?.[x];
-                            if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined) {
+                            if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined && !claimedTargetsThisTick.has(`${x},${y}`)) {
                                 const d = distance(nc, { x, y }); if (d < minPlantDist) { minPlantDist = d; nearestPlant = { x, y }; }
                             }
                         }
                         if (nearestPlant) {
-                            const path = findPath(nc, nearestPlant, newGrid, prevColonists.filter((_, i) => i !== idx));
-                            if (path && path.length > 1) { nc.task = 'MOVING_TO_PLANT'; nc.target = nearestPlant; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to plant seeds.`); }
+                            const path = findPath(nc, nearestPlant, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                            if (path && path.length > 1) { nc.task = 'MOVING_TO_PLANT'; nc.target = nearestPlant; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; addLog(`${nc.name} is going to plant seeds.`); claimedTargetsThisTick.add(`${nearestPlant.x},${nearestPlant.y}`); }
                         }
                     }
                 }
@@ -580,17 +689,30 @@ export default function App() {
                                 else if (currentTile.type === TileType.DROPPED_GEM) nc.carrying = TileType.GEM;
                                 else if (currentTile.type === TileType.DROPPED_LOG) nc.carrying = 'LOGS';
                                 else if (currentTile.type === TileType.DROPPED_FOOD) nc.carrying = 'FOOD';
+                                else if (currentTile.type === TileType.DROPPED_STONE) nc.carrying = 'STONE';
                                 nc.carryingAmount = 1;
-                                currentTile.type = TileType.FLOOR; gridChanged = true;
+                                
+                                let floorTypeAfterHaul = TileType.WOOD_FLOOR;
+                                const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                                for (const [dx, dy] of neighbors) {
+                                    const neighborTile = newGrid[nc.y + dy]?.[nc.x + dx];
+                                    if (neighborTile && neighborTile.type === TileType.STONE_FLOOR) {
+                                        floorTypeAfterHaul = TileType.STONE_FLOOR;
+                                        break;
+                                    }
+                                }
+                                currentTile.type = floorTypeAfterHaul;
+                                gridChanged = true;
                             }
                             let nearestStorage: Point | null = null, minStorageDist = Infinity;
                             for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
+                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
                         }
                         else if(nc.task === 'MOVING_TO_STORAGE') {
                             if (nc.carrying === TileType.MINERAL) mineralsThisTick++;
                             else if (nc.carrying === TileType.GEM) gemsThisTick++;
                             else if (nc.carrying === 'LOGS') logsThisTick++;
+                            else if (nc.carrying === 'STONE') stoneThisTick++;
                             else if (nc.carrying === 'FOOD') foodThisTick += (nc.carryingAmount || 1);
                             addLog(`${nc.name} stored a resource.`);
                             nc.carrying = null; nc.carryingAmount = undefined; happinessBoostThisTick = true; nc.task = 'IDLE';
@@ -619,7 +741,7 @@ export default function App() {
 
                             let nearestStorage: Point | null = null, minStorageDist = Infinity;
                             for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
+                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
                             
                             nc.workTicks = 0; nc.target = null;
                             return nc;
@@ -630,18 +752,23 @@ export default function App() {
                                 addLog(`${nc.name} finished mining at (${x}, ${y}).`);
                                 if (targetTile.type === TileType.MINERAL) targetTile.type = TileType.DROPPED_MINERAL;
                                 else if (targetTile.type === TileType.GEM) targetTile.type = TileType.DROPPED_GEM;
+                                else if (targetTile.type === TileType.ROCK) targetTile.type = TileType.DROPPED_STONE;
                                 else targetTile.type = TileType.EMPTY;
                             } else if (nc.task === 'CHOPPING') {
                                 addLog(`${nc.name} finished chopping at (${x}, ${y}).`);
                                 targetTile.type = TileType.DROPPED_LOG;
                             } else if (nc.task === 'BUILDING') {
-                                if(targetDesignation === DesignationType.BUILD_FLOOR) { addLog(`${nc.name} finished building floor at (${x}, ${y}).`); targetTile.type = TileType.FLOOR; } 
-                                else if (targetDesignation === DesignationType.BUILD_WALL) { addLog(`${nc.name} finished building wall at (${x}, ${y}).`); targetTile.type = TileType.WALL; logsThisTick -= C.WALL_COST; } 
+                                if(targetDesignation === DesignationType.BUILD_WOOD_FLOOR) { addLog(`${nc.name} finished building wood floor at (${x}, ${y}).`); targetTile.type = TileType.WOOD_FLOOR; logsThisTick -= C.FLOOR_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_WOOD_WALL) { addLog(`${nc.name} finished building wood wall at (${x}, ${y}).`); targetTile.type = TileType.WOOD_WALL; logsThisTick -= C.WALL_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_STONE_FLOOR) { addLog(`${nc.name} finished building stone floor at (${x}, ${y}).`); targetTile.type = TileType.STONE_FLOOR; stoneThisTick -= C.STONE_FLOOR_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_STONE_WALL) { addLog(`${nc.name} finished building stone wall at (${x}, ${y}).`); targetTile.type = TileType.STONE_WALL; stoneThisTick -= C.STONE_WALL_COST; } 
+                                else if (targetDesignation === DesignationType.UPGRADE_TO_STONE_FLOOR) { addLog(`${nc.name} upgraded floor to stone at (${x}, ${y}).`); targetTile.type = TileType.STONE_FLOOR; stoneThisTick -= C.STONE_FLOOR_COST; }
+                                else if (targetDesignation === DesignationType.UPGRADE_TO_STONE_WALL) { addLog(`${nc.name} upgraded wall to stone at (${x}, ${y}).`); targetTile.type = TileType.STONE_WALL; stoneThisTick -= C.STONE_WALL_COST; }
                                 else if (targetDesignation === DesignationType.BUILD_DOOR) { addLog(`${nc.name} finished building door at (${x}, ${y}).`); targetTile.type = TileType.DOOR; logsThisTick -= C.DOOR_COST; } 
                                 else if (targetDesignation === DesignationType.BUILD_BED) { addLog(`${nc.name} finished building bed at (${x}, ${y}).`); targetTile.type = TileType.BED; logsThisTick -= C.BED_COST; } 
                                 else if (targetDesignation === DesignationType.BUILD_STORAGE) { addLog(`${nc.name} finished building storage at (${x}, ${y}).`); targetTile.type = TileType.STORAGE; logsThisTick -= C.STORAGE_COST; }
-                                else if (targetDesignation === DesignationType.BUILD_HYDROPONICS) { addLog(`${nc.name} finished building hydroponics at (${x}, ${y}).`); targetTile.type = TileType.HYDROPONICS_TRAY; mineralsThisTick -= C.HYDROPONICS_COST; }
-                                else if (targetDesignation === DesignationType.BUILD_ARCADE) { addLog(`${nc.name} finished building arcade at (${x}, ${y}).`); targetTile.type = TileType.ARCADE_MACHINE; mineralsThisTick -= C.ARCADE_COST; }
+                                else if (targetDesignation === DesignationType.BUILD_HYDROPONICS) { addLog(`${nc.name} finished building hydroponics at (${x}, ${y}).`); targetTile.type = TileType.HYDROPONICS_TRAY; logsThisTick -= C.HYDROPONICS_COST.logs; stoneThisTick -= C.HYDROPONICS_COST.stone; mineralsThisTick -= C.HYDROPONICS_COST.minerals; }
+                                else if (targetDesignation === DesignationType.BUILD_ARCADE) { addLog(`${nc.name} finished building arcade at (${x}, ${y}).`); targetTile.type = TileType.ARCADE_MACHINE; logsThisTick -= C.ARCADE_COST.logs; stoneThisTick -= C.ARCADE_COST.stone; mineralsThisTick -= C.ARCADE_COST.minerals; gemsThisTick -= C.ARCADE_COST.gems; }
                             } else if (nc.task === 'PLANTING') {
                                 addLog(`${nc.name} finished planting at (${x}, ${y}).`);
                                 targetTile.growth = 0;
@@ -659,19 +786,43 @@ export default function App() {
                 return nc;
             });
             
+            let finalColonists = updatedColonists;
+
+            if (deathsThisTick.length > 0) {
+                deathsThisTick.forEach(death => {
+                    addLog(`${death.colonist.name} has died from ${death.cause}.`, 'event');
+                });
+
+                const deadIds = new Set(deathsThisTick.map(d => d.colonist.id));
+                const deadIndices = new Set(prevColonists.map((c, i) => ({c, i})).filter(p => deadIds.has(p.c.id)).map(p => p.i));
+
+                setColonistLogs(prevLogs => prevLogs.filter((_, i) => !deadIndices.has(i)));
+                
+                finalColonists = updatedColonists
+                    .filter(c => !deadIds.has(c.id))
+                    .map(c => ({
+                        ...c,
+                        happiness: Math.max(0, c.happiness - (C.HAPPINESS_PENALTY_PER_DEATH * deathsThisTick.length))
+                    }));
+
+                if (finalColonists.length === 0) {
+                    addLog("The last colonist has perished. The simulation has failed.", "event");
+                    setIsPlaying(false);
+                }
+            }
+
             const newTotalMinerals = storedMinerals + mineralsThisTick;
-            const newTotalGems = storedGems + gemsThisTick;
 
             if (mineralsThisTick !== 0) setStoredMinerals(prev => Math.max(0, prev + mineralsThisTick));
-            if (gemsThisTick > 0) setStoredGems(newTotalGems);
+            if (gemsThisTick !== 0) setStoredGems(prev => Math.max(0, prev + gemsThisTick));
             if (logsThisTick !== 0) setStoredLogs(prev => Math.max(0, prev + logsThisTick));
+            if (stoneThisTick !== 0) setStoredStone(prev => Math.max(0, prev + stoneThisTick));
             if (foodThisTick !== 0) setStoredFood(prev => Math.max(0, prev + foodThisTick));
 
-            recordColonistWorkLog(updatedColonists, tickCount);
-
-            let finalColonists = updatedColonists;
-            if (happinessBoostThisTick) {
-                finalColonists = updatedColonists.map(c => ({ ...c, happiness: Math.min(C.MAX_HAPPINESS, c.happiness + C.HAPPINESS_BOOST_ON_STORE) }));
+            recordColonistWorkLog(finalColonists, tickCount);
+            
+            if (happinessBoostThisTick && finalColonists.length > 0) {
+                finalColonists = finalColonists.map(c => ({ ...c, happiness: Math.min(C.MAX_HAPPINESS, c.happiness + C.HAPPINESS_BOOST_ON_STORE) }));
             }
             let totalHappiness = finalColonists.reduce((sum, c) => sum + c.happiness, 0);
 
@@ -693,7 +844,7 @@ export default function App() {
             }
             return finalColonists;
         });
-    }, [grid, designations, averageHappiness, selectedColonist, storedMinerals, storedGems, storedLogs, storedFood, recordColonistWorkLog, tickCount, milestoneLevel, currentGoal, activeEvents, colonists.length, addLog, isNarrating, generateChronicleUpdate]);
+    }, [grid, designations, averageHappiness, selectedColonist, storedMinerals, storedGems, storedLogs, storedStone, storedFood, recordColonistWorkLog, tickCount, milestoneLevel, currentGoal, activeEvents, colonists.length, addLog, isNarrating, generateChronicleUpdate]);
 
     const generateProceduralGrid = useCallback((currentSeed: string): Grid => {
         const prng = createPRNG(currentSeed);
@@ -720,7 +871,7 @@ export default function App() {
         const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
         for(let y = shelterRect.y0; y <= shelterRect.y1; y++) {
             for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
-                if(validTile(newGrid, y, x)) newGrid[y][x].type = TileType.FLOOR;
+                if(validTile(newGrid, y, x)) newGrid[y][x].type = TileType.WOOD_FLOOR;
             }
         }
 
@@ -760,12 +911,12 @@ export default function App() {
         const startY = Math.floor(C.GRID_HEIGHT / 2);
         const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
         for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
-            if(validTile(newGrid, shelterRect.y0, x) && isTileDesignatable(newGrid[shelterRect.y0][x].type, DesignationType.BUILD_WALL)) newDesignations[shelterRect.y0][x] = DesignationType.BUILD_WALL;
-            if(validTile(newGrid, shelterRect.y1, x) && isTileDesignatable(newGrid[shelterRect.y1][x].type, DesignationType.BUILD_WALL)) newDesignations[shelterRect.y1][x] = DesignationType.BUILD_WALL;
+            if(validTile(newGrid, shelterRect.y0, x) && isTileDesignatable(newGrid[shelterRect.y0][x].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[shelterRect.y0][x] = DesignationType.BUILD_WOOD_WALL;
+            if(validTile(newGrid, shelterRect.y1, x) && isTileDesignatable(newGrid[shelterRect.y1][x].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[shelterRect.y1][x] = DesignationType.BUILD_WOOD_WALL;
         }
         for(let y = shelterRect.y0 + 1; y < shelterRect.y1; y++) {
-            if(validTile(newGrid, y, shelterRect.x0) && isTileDesignatable(newGrid[y][shelterRect.x0].type, DesignationType.BUILD_WALL)) newDesignations[y][shelterRect.x0] = DesignationType.BUILD_WALL;
-            if(validTile(newGrid, y, shelterRect.x1) && isTileDesignatable(newGrid[y][shelterRect.x1].type, DesignationType.BUILD_WALL)) newDesignations[y][shelterRect.x1] = DesignationType.BUILD_WALL;
+            if(validTile(newGrid, y, shelterRect.x0) && isTileDesignatable(newGrid[y][shelterRect.x0].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[y][shelterRect.x0] = DesignationType.BUILD_WOOD_WALL;
+            if(validTile(newGrid, y, shelterRect.x1) && isTileDesignatable(newGrid[y][shelterRect.x1].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[y][shelterRect.x1] = DesignationType.BUILD_WOOD_WALL;
         }
         const doorX = startX;
         const doorY = shelterRect.y1;
@@ -787,12 +938,16 @@ export default function App() {
             happiness: C.MAX_HAPPINESS,
             patience: C.COLONIST_PATIENCE,
             hunger: 0,
-            boredom: 0
+            boredom: 0,
+            stuckTicks: 0,
+            lastPosition: { x: startingPos.x + i, y: startY + 1 },
+            criticallyLowEnergyTicks: 0,
+            criticallyLowHungerTicks: 0,
         }));
         setGrid(newGrid);
         setDesignations(newDesignations);
         setColonists(newColonists);
-        setStoredMinerals(0); setStoredGems(0); setStoredLogs(0); setStoredFood(10); setSelectedColonist(null); setAverageHappiness(C.MAX_HAPPINESS);
+        setStoredMinerals(0); setStoredGems(0); setStoredLogs(15); setStoredStone(0); setStoredFood(10); setSelectedColonist(null); setAverageHappiness(C.MAX_HAPPINESS); setWorkEfficiency(100);
         setMilestoneLevel(0); setCurrentGoal(C.INITIAL_GOAL);
         setActiveEvents([]);
         setEventPopup(null);
@@ -800,7 +955,9 @@ export default function App() {
         setTickCount(0); setCurrentDay(1); setCurrentHour(6);
         setChronology([{ timestamp: 'Day 1, 06:00', message: storyData.firstEntry }]);
         setColonistLogs(Array.from({ length: newColonists.length }, () => Array(C.DAY_LENGTH_TICKS).fill(null)));
-        addLog('Colony established. Good luck.');
+        addLog(`Simulation started. Welcome to ${storyData.colonyName}.`);
+        addLog('A small supply cache was found, providing 15 logs.');
+        setApiFailed(false);
         setIsGenerating(false);
     }, [generateProceduralGrid, addLog]);
     
@@ -817,12 +974,11 @@ export default function App() {
                 const newColonistData = storyData.colonists[0];
                 const newId = `Colonist-${colonists.length + 1}`;
                 const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
-                const newColonist: Colonist = {id: newId, name: newColonistData.name, backstory: newColonistData.backstory, x: startX, y: startY, task: 'IDLE', target: null, path: [], workTicks: 0, carrying: null, energy: C.MAX_ENERGY, happiness: C.MAX_HAPPINESS, patience: C.COLONIST_PATIENCE, hunger: 0, boredom: 0 };
+                const newColonist: Colonist = {id: newId, name: newColonistData.name, backstory: newColonistData.backstory, x: startX, y: startY, task: 'IDLE', target: null, path: [], workTicks: 0, carrying: null, energy: C.MAX_ENERGY, happiness: C.MAX_HAPPINESS, patience: C.COLONIST_PATIENCE, hunger: 0, boredom: 0, stuckTicks: 0, lastPosition: {x: startX, y: startY}, criticallyLowEnergyTicks: 0, criticallyLowHungerTicks: 0};
                 setColonists(prev => [...prev, newColonist]);
                 setColonistLogs(prev => [...prev, Array(C.DAY_LENGTH_TICKS).fill(null)]);
             } catch (error) {
                  console.error("Failed to generate new colonist, using fallback.", error);
-                 // Fallback logic could be added here if needed
             }
         } else if (event.id === 'TRAGIC_ACCIDENT') {
             setColonists(prevColonists => {
@@ -879,17 +1035,38 @@ export default function App() {
         if (!grid || !canvasRef.current) return;
         const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
         if (!ctx) return;
+        
         ctx.fillStyle = isDay ? C.PALETTE.BACKGROUND : C.PALETTE.NIGHT;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw background pattern
+        ctx.globalAlpha = 0.5;
+        ctx.font = "10px monospace";
+        const patternColors = ['#a855f7', '#eab308']; // purple, yellow
+        const patternPrng = createPRNG(seed + "_pattern");
+
+        for (let y = 0; y < C.GRID_HEIGHT; y++) {
+            for (let x = 0; x < C.GRID_WIDTH; x++) {
+                if (x % 4 === 1 && y % 4 === 1) {
+                    const drawX = x * C.TILE_SIZE + C.TILE_SIZE / 2;
+                    const drawY = y * C.TILE_SIZE + C.TILE_SIZE / 2;
+                    ctx.fillStyle = patternColors[Math.floor(patternPrng() * patternColors.length)];
+                    ctx.fillText('+', drawX, drawY);
+                }
+            }
+        }
+        ctx.globalAlpha = 1.0; // Reset alpha
+
         ctx.font = `${C.TILE_SIZE * 0.9}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         
         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
             const tile = grid[y]?.[x];
             if (tile) {
                 const drawX = x * C.TILE_SIZE + C.TILE_SIZE / 2, drawY = y * C.TILE_SIZE + C.TILE_SIZE / 2;
-                if(tile.type === TileType.FLOOR) { ctx.fillStyle = C.PALETTE.FLOOR; ctx.fillText(C.CHARS.FLOOR, drawX, drawY); }
+                if(tile.type === TileType.WOOD_FLOOR) { ctx.fillStyle = C.PALETTE.WOOD_FLOOR; ctx.fillText(C.CHARS.WOOD_FLOOR, drawX, drawY); }
+                else if (tile.type === TileType.STONE_FLOOR) { ctx.fillStyle = C.PALETTE.STONE_FLOOR; ctx.fillText(C.CHARS.STONE_FLOOR, drawX, drawY); }
                 else if (tile.type === TileType.BED || tile.type === TileType.STORAGE || tile.type === TileType.HYDROPONICS_TRAY || tile.type === TileType.ARCADE_MACHINE) {
-                    ctx.fillStyle = C.PALETTE.FLOOR; ctx.fillText(C.CHARS.FLOOR, drawX, drawY);
+                    ctx.fillStyle = C.PALETTE.WOOD_FLOOR; ctx.fillText(C.CHARS.WOOD_FLOOR, drawX, drawY);
                 }
             }
         }
@@ -906,10 +1083,12 @@ export default function App() {
                     case TileType.STORAGE: color = C.PALETTE.STORAGE; charToDraw = C.CHARS.STORAGE; break;
                     case TileType.DROPPED_MINERAL: color = C.PALETTE.DROPPED_MINERAL; charToDraw = C.CHARS.DROPPED_MINERAL; break;
                     case TileType.DROPPED_GEM: color = C.PALETTE.DROPPED_GEM; charToDraw = C.CHARS.DROPPED_GEM; break;
+                    case TileType.DROPPED_STONE: color = C.PALETTE.DROPPED_STONE; charToDraw = C.CHARS.DROPPED_STONE; break;
                     case TileType.BED: color = C.PALETTE.BED; charToDraw = C.CHARS.BED; break;
                     case TileType.TREE: color = isDay ? C.PALETTE.TREE : "#166534"; charToDraw = C.CHARS.TREE; break;
                     case TileType.DROPPED_LOG: color = C.PALETTE.DROPPED_LOG; charToDraw = C.CHARS.DROPPED_LOG; break;
-                    case TileType.WALL: color = C.PALETTE.WALL; charToDraw = C.CHARS.WALL; break;
+                    case TileType.WOOD_WALL: color = C.PALETTE.WOOD_WALL; charToDraw = C.CHARS.WOOD_WALL; break;
+                    case TileType.STONE_WALL: color = C.PALETTE.STONE_WALL; charToDraw = C.CHARS.STONE_WALL; break;
                     case TileType.DOOR: color = C.PALETTE.DOOR; charToDraw = C.CHARS.DOOR; break;
                     case TileType.SAPLING: color = C.PALETTE.SAPLING; charToDraw = C.CHARS.SAPLING; break;
                     case TileType.HYDROPONICS_TRAY: color = C.PALETTE.HYDROPONICS; charToDraw = C.CHARS.HYDROPONICS; break;
@@ -923,7 +1102,7 @@ export default function App() {
             const des = designations[y]?.[x];
             if (des) {
                 if (des === DesignationType.MINE || des === DesignationType.CHOP || des === DesignationType.HARVEST) ctx.fillStyle = C.PALETTE.DESIGNATION_MINE;
-                else if (des.startsWith('BUILD')) ctx.fillStyle = C.PALETTE.DESIGNATION_BUILD;
+                else if (des.startsWith('BUILD') || des.startsWith('UPGRADE')) ctx.fillStyle = C.PALETTE.DESIGNATION_BUILD;
                 ctx.fillRect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE);
             }
         }
@@ -935,7 +1114,7 @@ export default function App() {
             if(c.task === 'MINING' || c.task === 'BUILDING' || c.task === 'CHOPPING') char = C.CHARS.COLONIST_WORKING; if(c.carrying) char = C.CHARS.COLONIST_HAULING; if(c.task === 'RESTING') char = C.CHARS.COLONIST_RESTING; if(c.task === 'EATING') char = C.CHARS.COLONIST_EATING; if(c.task === 'PLAYING') char = C.CHARS.COLONIST_PLAYING;
             ctx.fillText(char, drawX, drawY);
         });
-    }, [grid, colonists, selectedColonist, designations, isDay]);
+    }, [grid, colonists, selectedColonist, designations, isDay, seed]);
 
     const getGridCoordsFromEvent = (event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent): Point | null => {
         const canvas = canvasRef.current; if (!canvas) return null;
@@ -951,7 +1130,7 @@ export default function App() {
         const coords = getGridCoordsFromEvent(event); if (!coords) return;
         if (interactionMode === 'INSPECT') {
             const clickedColonist = colonists.find(c => c.x === coords.x && c.y === coords.y);
-            setSelectedColonist(clickedColonist || null);
+            setSelectedColonist(prev => (prev && clickedColonist && prev.id === clickedColonist.id) ? null : clickedColonist || null);
         } else if (interactionMode === 'DESIGNATE' && designationType) {
             isDesignating.current = true;
             designationStart.current = coords;
@@ -976,11 +1155,16 @@ export default function App() {
     };
 
     const handleCanvasMouseMove = (event: React.MouseEvent) => {
-        if (!grid || !designations) return;
+        if (!grid) return;
         const coords = getGridCoordsFromEvent(event);
-        if(coords && validTile(grid, coords.y, coords.x)) {
-            setHoveredTile({ ...coords, ...grid[coords.y][coords.x] });
-        } else { setHoveredTile(null); }
+
+        if (interactionMode === 'INSPECT' && coords) {
+            const tileAtCoords = grid[coords.y]?.[coords.x];
+            setHoveredTile(tileAtCoords || null);
+        } else {
+            setHoveredTile(null);
+        }
+        
         if (interactionMode === 'DESIGNATE' && isDesignating.current && designationStart.current && coords) {
             setDesignations(prev => {
                 if (!prev || !designationDragStart.current || !designationType) return prev;
@@ -990,7 +1174,7 @@ export default function App() {
                 const x0 = Math.min(start.x, end.x), x1 = Math.max(start.x, end.x);
                 const y0 = Math.min(start.y, end.y), y1 = Math.max(start.y, end.y);
 
-                const isHollow = designationType === DesignationType.BUILD_WALL || designationType === DesignationType.BUILD_DOOR;
+                const isHollow = designationType === DesignationType.BUILD_WOOD_WALL || designationType === DesignationType.BUILD_DOOR || designationType === DesignationType.BUILD_STONE_WALL;
 
                 for (let y = y0; y <= y1; y++) {
                     for (let x = x0; x <= x1; x++) {
@@ -1014,6 +1198,10 @@ export default function App() {
     };
 
     const handleCanvasMouseUp = () => { isDesignating.current = false; designationStart.current = null; designationDragStart.current = null; };
+    const handleCanvasMouseLeave = () => {
+        setHoveredTile(null);
+        handleCanvasMouseUp();
+    };
     const handleSetDesignation = (type: DesignationType) => { 
         setDesignationType(type); 
         setInteractionMode('DESIGNATE');
@@ -1028,24 +1216,60 @@ export default function App() {
     
     const handleUnstuck = () => {
         if (!grid) return;
-        const newGrid = grid.map(r => r.map(c => ({...c})));
-        let gridChanged = false;
-    
-        const updatedColonists = colonists.map(c => {
-            if (c.carrying && validTile(newGrid, c.y, c.x) && [TileType.EMPTY, TileType.FLOOR, TileType.DOOR, TileType.SAPLING].includes(newGrid[c.y][c.x].type)) {
-                let dropType: TileType | null = null;
-                if (c.carrying === TileType.MINERAL) dropType = TileType.DROPPED_MINERAL;
-                else if (c.carrying === TileType.GEM) dropType = TileType.DROPPED_GEM;
-                else if (c.carrying === 'LOGS') dropType = TileType.DROPPED_LOG;
-                else if (c.carrying === 'FOOD') dropType = TileType.DROPPED_FOOD;
-    
-                if (dropType) {
-                     newGrid[c.y][c.x].type = dropType;
-                     gridChanged = true;
+
+        if (unstuckTimeoutRef.current) {
+            clearTimeout(unstuckTimeoutRef.current);
+        }
+
+        const newPressCount = unstuckPressCount + 1;
+        setUnstuckPressCount(newPressCount);
+
+        if (newPressCount === 1) {
+            const newGrid = grid.map(r => r.map(c => ({...c})));
+            let gridChanged = false;
+        
+            const updatedColonists = colonists.map(c => {
+                if (c.carrying && validTile(newGrid, c.y, c.x) && [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR, TileType.DOOR, TileType.SAPLING].includes(newGrid[c.y][c.x].type)) {
+                    let dropType: TileType | null = null;
+                    if (c.carrying === TileType.MINERAL) dropType = TileType.DROPPED_MINERAL;
+                    else if (c.carrying === TileType.GEM) dropType = TileType.DROPPED_GEM;
+                    else if (c.carrying === 'LOGS') dropType = TileType.DROPPED_LOG;
+                    else if (c.carrying === 'FOOD') dropType = TileType.DROPPED_FOOD;
+                    else if (c.carrying === 'STONE') dropType = TileType.DROPPED_STONE;
+        
+                    if (dropType) {
+                         newGrid[c.y][c.x].type = dropType;
+                         gridChanged = true;
+                    }
                 }
+                return {
+                    ...c,
+                    task: 'IDLE',
+                    target: null,
+                    path: [],
+                    workTicks: 0,
+                    patience: C.COLONIST_PATIENCE,
+                    carrying: null,
+                    energy: C.MAX_ENERGY,
+                    hunger: 0,
+                    boredom: 0
+                };
+            });
+            
+            setColonists(updatedColonists);
+            if(gridChanged) {
+                setGrid(newGrid);
             }
-            return {
+            addLog('All colonists soft-reset. Press again to teleport to safety.', 'event');
+
+        } else if (newPressCount >= 2) {
+            const startX = Math.floor(C.GRID_WIDTH / 2);
+            const startY = Math.floor(C.GRID_HEIGHT / 2);
+    
+            const updatedColonists = colonists.map((c, i) => ({
                 ...c,
+                x: startX + i,
+                y: startY + 1,
                 task: 'IDLE',
                 target: null,
                 path: [],
@@ -1055,17 +1279,18 @@ export default function App() {
                 energy: C.MAX_ENERGY,
                 hunger: 0,
                 boredom: 0
-            };
-        });
-        
-        setColonists(updatedColonists);
-        if(gridChanged) {
-            setGrid(newGrid);
+            }));
+            
+            setColonists(updatedColonists);
+            addLog('Colonists teleported to the starting area!', 'event');
+            setUnstuckPressCount(0);
         }
-        addLog('All colonists have been forcefully reset.', 'event');
+        
+        unstuckTimeoutRef.current = setTimeout(() => {
+            setUnstuckPressCount(0);
+        }, 2000);
     };
 
-    // FIX: Added missing handleExportJson and handleImportJson functions for game state management.
     const handleExportJson = () => {
         const gameState = {
             version: C.GAME_VERSION,
@@ -1076,6 +1301,7 @@ export default function App() {
             storedMinerals,
             storedGems,
             storedLogs,
+            storedStone,
             storedFood,
             milestoneLevel,
             currentGoal,
@@ -1089,6 +1315,7 @@ export default function App() {
             asteroidName,
             chronology,
             colonistLogs,
+            apiFailed,
         };
         const jsonString = JSON.stringify(gameState, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
@@ -1122,13 +1349,22 @@ export default function App() {
                     throw new Error(`Incompatible save version. Expected ${C.GAME_VERSION}, got ${loadedState.version}.`);
                 }
 
+                const loadedColonists = loadedState.colonists.map((c: Colonist) => ({
+                    ...c,
+                    stuckTicks: c.stuckTicks || 0,
+                    lastPosition: c.lastPosition || { x: c.x, y: c.y },
+                    criticallyLowEnergyTicks: c.criticallyLowEnergyTicks || 0,
+                    criticallyLowHungerTicks: c.criticallyLowHungerTicks || 0,
+                }));
+
                 setSeed(loadedState.seed);
                 setGrid(loadedState.grid);
                 setDesignations(loadedState.designations);
-                setColonists(loadedState.colonists);
+                setColonists(loadedColonists);
                 setStoredMinerals(loadedState.storedMinerals);
                 setStoredGems(loadedState.storedGems);
                 setStoredLogs(loadedState.storedLogs);
+                setStoredStone(loadedState.storedStone || 0);
                 setStoredFood(loadedState.storedFood);
                 setMilestoneLevel(loadedState.milestoneLevel);
                 setCurrentGoal(loadedState.currentGoal);
@@ -1142,6 +1378,7 @@ export default function App() {
                 setAsteroidName(loadedState.asteroidName);
                 setChronology(loadedState.chronology);
                 setColonistLogs(loadedState.colonistLogs);
+                setApiFailed(loadedState.apiFailed || false);
 
                 setSelectedColonist(null);
                 setEventPopup(null);
@@ -1160,55 +1397,62 @@ export default function App() {
         reader.readAsText(file);
     };
 
+    useEffect(() => {
+        return () => {
+            if (unstuckTimeoutRef.current) {
+                clearTimeout(unstuckTimeoutRef.current);
+            }
+        };
+    }, []);
+
     return (
-        <div className="bg-gray-900 min-h-screen flex flex-col items-center justify-center font-mono p-4 text-white">
+        <div className="bg-gray-900 h-screen flex flex-col font-mono text-white p-2 gap-2">
             {showIntro && <IntroModal onStart={() => {setShowIntro(false); setIsPlaying(true);}} isGenerating={isGenerating} colonyName={colonyName} asteroidName={asteroidName} colonists={colonists} />}
-            <div className="w-full max-w-[1600px] mx-auto flex flex-col items-center">
-                <h1 className="text-3xl font-bold mb-2">[PROJECT ASTEROID] <span className="text-sm font-normal ml-3">{C.GAME_VERSION}</span></h1>
-                
-                <div className="w-full grid grid-cols-1 lg:grid-cols-[250px_1fr_400px] items-start gap-4 mb-4">
-                    {/* Left Column */}
-                    <div className="flex flex-col gap-4 w-full">
-                       <CombinedInspectorPanel colonist={selectedColonist} tile={hoveredTile} />
-                        <ColonistQuickSelectPanel colonists={colonists} onSelect={setSelectedColonist} selectedId={selectedColonist?.id} />
-                    </div>
-
-                    {/* Middle Column */}
-                    <div className="flex flex-col gap-4 w-full">
-                        <StatsPanel storedMinerals={storedMinerals} storedGems={storedGems} storedLogs={storedLogs} storedFood={storedFood} averageHappiness={averageHappiness} workEfficiency={workEfficiency} currentDay={currentDay} currentHour={currentHour} isDay={isDay} milestoneLevel={milestoneLevel} currentGoal={currentGoal}/>
-                        <EventsPanel events={activeEvents}/>
-                        <ColonyChronologyPanel chronology={chronology} colonyName={colonyName} asteroidName={asteroidName} />
-                        <BuildMenu onSetDesignation={handleSetDesignation} onSetInspect={handleSetInspect} currentMode={interactionMode} designationType={designationType} storedLogs={storedLogs} storedMinerals={storedMinerals} />
-                    </div>
-                    
-                    {/* Right Column */}
-                     <div className="flex flex-col gap-4 w-full h-[692px]">
-                        <GameLogPanel log={gameLog} />
-                        <ColonistWorkLogPanel colonists={colonists} logs={colonistLogs} tickCount={tickCount} />
-                     </div>
-                </div>
-
-                <div className="border-2 border-gray-600 shadow-lg relative">
-                    <canvas ref={canvasRef} style={{ cursor: cursor === 'pickaxe' ? `url(${C.PICKAXE_CURSOR_SVG}), auto` : 'default' }} width={C.GRID_WIDTH * C.TILE_SIZE} height={C.GRID_HEIGHT * C.TILE_SIZE} onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onMouseLeave={handleCanvasMouseUp} />
+            
+            {/* Top Stats Bar */}
+            <StatsPanel storedMinerals={storedMinerals} storedGems={storedGems} storedLogs={storedLogs} storedFood={storedFood} storedStone={storedStone} averageHappiness={averageHappiness} workEfficiency={workEfficiency} currentDay={currentDay} currentHour={currentHour} isDay={isDay} milestoneLevel={milestoneLevel} currentGoal={currentGoal}/>
+            
+            <main className="flex-grow flex flex-row gap-2 overflow-hidden">
+              {/* Main Content: Canvas */}
+              <div className="flex-grow flex items-center justify-center bg-black border-2 border-gray-600 rounded-md">
+                <div className="relative">
+                    <canvas ref={canvasRef} style={{ cursor: cursor === 'pickaxe' ? `url(${C.PICKAXE_CURSOR_SVG}), auto` : 'default' }} width={C.GRID_WIDTH * C.TILE_SIZE} height={C.GRID_HEIGHT * C.TILE_SIZE} onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onMouseLeave={handleCanvasMouseLeave} />
                     {eventPopup && <EventModal event={eventPopup} onContinue={closeEventPopup} />}
                 </div>
-
-                <div className="flex items-center space-x-4 mt-4">
-                    <button onClick={() => setIsPlaying(!isPlaying)} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-lg font-semibold disabled:bg-gray-500 disabled:cursor-not-allowed"> {isPlaying ? 'Pause' : 'Play'} </button>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => resetGame(seed)} className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-lg font-semibold"> Regenerate World </button>
-                        <input type="text" value={seed} onChange={(e) => setSeed(e.target.value)} className="bg-gray-700 border border-gray-500 rounded px-2 py-1 w-32" placeholder="seed..."/>
-                    </div>
-                     <button onClick={handleUnstuck} className="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-md text-md font-semibold">Unstuck Colonists</button>
-                    <div className="relative">
-                        <button onClick={() => setShowSettings(s => !s)} className="p-2 bg-gray-600 hover:bg-gray-700 rounded-md">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                        </button>
-                        {showSettings && <SettingsModal onExport={handleExportJson} onImport={handleImportJson} importError={importError} setImportError={setImportError} />}
-                    </div>
-                </div>
-                 <Legend />
-            </div>
+              </div>
+              
+              {/* Right Sidebar */}
+              <aside className="w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col gap-2 overflow-y-auto pr-1">
+                <CombinedInspectorPanel colonist={selectedColonist} tile={hoveredTile} />
+                <ColonistWorkLogPanel colonists={colonists} logs={colonistLogs} tickCount={tickCount} onSelect={setSelectedColonist} selectedId={selectedColonist?.id}/>
+                <ColonyChronologyPanel chronology={chronology} colonyName={colonyName} asteroidName={asteroidName} isExpanded={expandedPanel === 'chronology'} onToggleExpand={() => setExpandedPanel(p => p === 'chronology' ? 'none' : 'chronology')} />
+                <GameLogPanel log={gameLog} isExpanded={expandedPanel === 'log'} onToggleExpand={() => setExpandedPanel(p => p === 'log' ? 'none' : 'log')} />
+              </aside>
+            </main>
+            
+            {/* Bottom Controls */}
+            <footer className="flex-shrink-0 flex flex-col gap-1">
+              <div className="relative">
+                <BuildMenu 
+                    onSetDesignation={handleSetDesignation}
+                    onSetInspect={handleSetInspect}
+                    currentMode={interactionMode}
+                    designationType={designationType}
+                    storedLogs={storedLogs}
+                    storedMinerals={storedMinerals}
+                    storedStone={storedStone}
+                    isPlaying={isPlaying}
+                    onTogglePlay={() => setIsPlaying(p => !p)}
+                    onRegenerate={() => resetGame(seed)}
+                    seed={seed}
+                    onSeedChange={(e) => setSeed(e.target.value)}
+                    onUnstuck={handleUnstuck}
+                    onToggleSettings={() => setShowSettings(s => !s)}
+                />
+                {showSettings && <SettingsModal onExport={handleExportJson} onImport={handleImportJson} importError={importError} setImportError={setImportError} />}
+              </div>
+              <Legend />
+            </footer>
         </div>
     );
 }

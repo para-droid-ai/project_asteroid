@@ -21,24 +21,26 @@ export const IntroModal: React.FC<IntroModalProps> = ({ onStart, isGenerating, c
     }
     
     return (
-        <div className="absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-30">
-            <div className="bg-gray-800 border-2 border-cyan-500 rounded-lg p-8 max-w-3xl text-center shadow-2xl">
-                <h1 className="text-4xl font-bold text-cyan-400 mb-2">Welcome to {colonyName}</h1>
-                <p className="text-gray-400 mb-6">Your destination: Asteroid {asteroidName}</p>
+        <div className="absolute inset-0 bg-black bg-opacity-85 flex flex-col items-center justify-center z-30 p-4">
+            <div className="bg-slate-900 border-2 border-cyan-500 rounded-lg p-8 max-w-4xl w-full text-center shadow-2xl space-y-6">
+                <div>
+                    <h1 className="text-4xl font-bold text-cyan-400 mb-1">Welcome to {colonyName}</h1>
+                    <p className="text-gray-400">Your destination: Asteroid {asteroidName}</p>
+                </div>
                 
-                <div className="text-left mb-6 bg-gray-900 p-4 rounded-md">
-                     <p className="mb-2"><strong className="text-yellow-400">Your Crew:</strong> These souls are all that remain. Their pasts are behind them; their future is in your hands.</p>
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 my-4">
+                <div className="text-left space-y-4 text-gray-300">
+                     <p><strong className="text-yellow-400">Your Crew:</strong> These souls are all that remain. Their pasts are behind them; their future is in your hands.</p>
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {colonists.map(c => (
-                            <div key={c.id} className="bg-gray-800 p-2 rounded">
-                                <p className="font-bold text-cyan-300">{c.name}</p>
-                                <p className="text-xs text-gray-400 italic">"{c.backstory}"</p>
+                            <div key={c.id} className="bg-slate-800 border border-slate-700 p-4 rounded-md">
+                                <p className="font-bold text-cyan-300 text-lg">{c.name}</p>
+                                <p className="text-sm text-gray-300 mt-2">"{c.backstory}"</p>
                             </div>
                         ))}
                      </div>
                      <p><strong className="text-yellow-400">The Goal:</strong> Guide them to sustainability. Designate tasks, manage their needs, and see how long they can last against the harshness of space.</p>
                 </div>
-                <button onClick={onStart} className="px-8 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-md text-xl font-semibold">Begin Simulation</button>
+                <button onClick={onStart} className="px-10 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-md text-xl font-semibold transition-colors">Begin Simulation</button>
             </div>
         </div>
     );
