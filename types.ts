@@ -75,6 +75,8 @@ export interface Colonist extends Point {
   lastPosition?: Point;
   criticallyLowEnergyTicks: number;
   criticallyLowHungerTicks: number;
+  softResetCount: number;
+  hardResetCount: number;
 }
 
 export interface GameEvent {

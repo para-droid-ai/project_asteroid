@@ -17,6 +17,7 @@ This project was built with the assistance of Google's Gemini.
 -   **Goals & Milestones**: Prove your colony is sustainable by reaching resource collection milestones.
 -   **Save/Load System**: Export your game progress to a JSON file and import it later to continue.
 -   **AI Narrator**: A dynamic "Colony Chronicle" powered by Google's Gemini API generates a unique story for your colony based on its progress and struggles.
+-   **Smarter Colonists**: Advanced pathfinding helps colonists navigate around each other to avoid getting stuck.
 
 ## How to Play
 

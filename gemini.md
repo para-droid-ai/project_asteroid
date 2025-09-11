@@ -84,3 +84,5 @@ Act as a world-class senior frontend engineer with deep expertise in React, Type
         *   **Dynamic Chronicle:** Gemini periodically writes new entries to a "Colony Chronology" log, acting as a "god-in-the-machine" narrator that reacts to the player's progress and the colonists' actions.
     *   **UI Overhaul**: The UI was re-architected to ensure all critical information (especially activity logs) is always visible.
 *   **Current State**: The game's core mechanics are stable, and the Gemini-powered narrative system is fully integrated. A new **Stone** resource has been added for construction. The focus is shifting to adding deeper consequences and more complex, AI-driven events.
+    *   **AI Debugging & Tuning:** Added metrics to track colonist "stuck" states and AI resets, providing valuable data for fine-tuning behavior.
+    *   **Improved Pathfinding & UI Stability:** The colonist pathfinding algorithm has been updated to treat other colonists as temporary obstacles, significantly reducing traffic jams. Multiple UI layout bugs related to panel resizing have been fixed, resulting in a more stable interface.

@@ -109,6 +109,7 @@ export default function App() {
     const [isNarrating, setIsNarrating] = useState(false);
     const [expandedPanel, setExpandedPanel] = useState<'chronology' | 'log' | 'none'>('chronology');
     const [apiFailed, setApiFailed] = useState(false);
+    const [colonyStats, setColonyStats] = useState({ softResets: 0, hardResets: 0 });
     
     const [unstuckPressCount, setUnstuckPressCount] = useState(0);
     const unstuckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -380,13 +381,16 @@ export default function App() {
                     nc.y = startY + 1;
                     nc.task = 'IDLE'; nc.target = null; nc.path = []; nc.workTicks = 0; nc.patience = C.COLONIST_PATIENCE; nc.carrying = null;
                     nc.stuckTicks = 0;
+                    nc.hardResetCount = (nc.hardResetCount || 0) + 1;
                     return nc;
                 } else if (nc.stuckTicks === C.AUTO_UNSTUCK_MEDIUM_TICKS) {
                     addLog(`${nc.name} is still stuck. Trying another reset.`, 'event');
                     softReset(nc);
+                    nc.softResetCount = (nc.softResetCount || 0) + 1;
                 } else if (nc.stuckTicks === C.AUTO_UNSTUCK_SOFT_TICKS) {
                     addLog(`${nc.name} has been stuck for a while. Resetting task.`, 'event');
                     softReset(nc);
+                    nc.softResetCount = (nc.softResetCount || 0) + 1;
                 }
                 
                 nc.happiness = Math.max(0, nc.happiness - happinessDecay);
@@ -417,57 +421,71 @@ export default function App() {
                     return nc; // Stop processing this colonist
                 }
 
-                let isCriticallyNeedyAndStuck = false;
+                const needs = [
+                    { condition: nc.energy <= C.LOW_ENERGY_THRESHOLD, type: 'ENERGY' },
+                    { condition: nc.hunger >= C.LOW_HUNGER_THRESHOLD, type: 'HUNGER' },
+                    { condition: nc.boredom >= C.HIGH_BOREDOM_THRESHOLD, type: 'BOREDOM' },
+                ];
 
-                // Needs-based task override with strict priority.
-                if (nc.energy <= C.LOW_ENERGY_THRESHOLD && nc.task !== 'RESTING' && nc.task !== 'MOVING_TO_REST') {
-                    let foundPath = false;
-                    let nearestBed: Point | null = null; let minBedDist = Infinity;
-                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.BED && !claimedTargetsThisTick.has(`${x},${y}`)) { const d = distance(nc, { x, y }); if (d < minBedDist) { minBedDist = d; nearestBed = { x, y }; } }
-                    if (nearestBed) { 
-                        const path = findPath(nc, nearestBed, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); 
-                        if (path) { 
-                            dropCarriedItem(nc); nc.task = 'MOVING_TO_REST'; nc.path = path.slice(1); nc.target = nearestBed; nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is tired, going to rest.`); claimedTargetsThisTick.add(`${nearestBed.x},${nearestBed.y}`); 
-                            foundPath = true;
-                            return nc; 
-                        } 
-                    }
-                    if (!foundPath) isCriticallyNeedyAndStuck = true;
-                } else if (nc.hunger >= C.LOW_HUNGER_THRESHOLD && nc.task !== 'EATING' && nc.task !== 'MOVING_TO_EAT') {
-                    let foundPath = false;
-                    if (storedFood > 0) {
-                        let nearestStorage: Point | null = null, minStorageDist = Infinity;
-                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                        if(nearestStorage) { 
-                            const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); 
-                            if(path) { 
-                                dropCarriedItem(nc); nc.task = 'MOVING_TO_EAT'; nc.path = path.slice(1); nc.target = nearestStorage; nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is hungry, going to get food.`); 
-                                foundPath = true;
-                                return nc; 
-                            } 
+                let assignedNeedTask = false;
+                for (const need of needs) {
+                    if (need.condition) {
+                        let taskAssigned = false;
+                        if (need.type === 'ENERGY') {
+                            if (nc.task !== 'RESTING' && nc.task !== 'MOVING_TO_REST') {
+                                let nearestBed: Point | null = null; let minBedDist = Infinity;
+                                for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.BED && !claimedTargetsThisTick.has(`${x},${y}`)) { const d = distance(nc, { x, y }); if (d < minBedDist) { minBedDist = d; nearestBed = { x, y }; } }
+                                if (nearestBed) {
+                                    const path = findPath(nc, nearestBed, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                    if (path) {
+                                        dropCarriedItem(nc);
+                                        nc.task = 'MOVING_TO_REST'; nc.path = path.slice(1); nc.target = nearestBed; nc.patience = C.COLONIST_PATIENCE;
+                                        addLog(`${nc.name} is tired, going to rest.`);
+                                        claimedTargetsThisTick.add(`${nearestBed.x},${nearestBed.y}`);
+                                        taskAssigned = true;
+                                    }
+                                }
+                            } else { taskAssigned = true; /* Already handling this need */ }
+                        } else if (need.type === 'HUNGER') {
+                            if (nc.task !== 'EATING' && nc.task !== 'MOVING_TO_EAT') {
+                                if (storedFood > 0) {
+                                    let nearestStorage: Point | null = null, minStorageDist = Infinity;
+                                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, { x, y }); if (d < minStorageDist) { minStorageDist = d; nearestStorage = { x, y }; } }
+                                    if (nearestStorage) {
+                                        const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                        if (path) {
+                                            dropCarriedItem(nc);
+                                            nc.task = 'MOVING_TO_EAT'; nc.path = path.slice(1); nc.target = nearestStorage; nc.patience = C.COLONIST_PATIENCE;
+                                            addLog(`${nc.name} is hungry, going to get food.`);
+                                            taskAssigned = true;
+                                        }
+                                    }
+                                }
+                            } else { taskAssigned = true; }
+                        } else if (need.type === 'BOREDOM') {
+                            if (nc.task !== 'PLAYING' && nc.task !== 'MOVING_TO_PLAY') {
+                                let nearestArcade: Point | null = null; let minArcadeDist = Infinity;
+                                for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.ARCADE_MACHINE && !claimedTargetsThisTick.has(`${x},${y}`)) { const d = distance(nc, { x, y }); if (d < minArcadeDist) { minArcadeDist = d; nearestArcade = { x, y }; } }
+                                if (nearestArcade) {
+                                    const path = findPath(nc, nearestArcade, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                    if (path) {
+                                        dropCarriedItem(nc);
+                                        nc.task = 'MOVING_TO_PLAY'; nc.path = path.slice(1); nc.target = nearestArcade; nc.patience = C.COLONIST_PATIENCE;
+                                        addLog(`${nc.name} is bored, going to play.`);
+                                        claimedTargetsThisTick.add(`${nearestArcade.x},${nearestArcade.y}`);
+                                        taskAssigned = true;
+                                    }
+                                }
+                            } else { taskAssigned = true; }
+                        }
+                        if (taskAssigned) {
+                            assignedNeedTask = true;
+                            break;
                         }
                     }
-                     if (!foundPath) isCriticallyNeedyAndStuck = true;
-                } else if (nc.boredom >= C.HIGH_BOREDOM_THRESHOLD && nc.task !== 'PLAYING' && nc.task !== 'MOVING_TO_PLAY') {
-                    let foundPath = false;
-                    let nearestArcade: Point | null = null; let minArcadeDist = Infinity;
-                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.ARCADE_MACHINE && !claimedTargetsThisTick.has(`${x},${y}`)) { const d = distance(nc, { x, y }); if (d < minArcadeDist) { minArcadeDist = d; nearestArcade = { x, y }; } }
-                    if (nearestArcade) { 
-                        const path = findPath(nc, nearestArcade, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx)); 
-                        if (path) { 
-                            dropCarriedItem(nc); nc.task = 'MOVING_TO_PLAY'; nc.path = path.slice(1); nc.target = nearestArcade; nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is bored, going to play.`); claimedTargetsThisTick.add(`${nearestArcade.x},${nearestArcade.y}`); 
-                            foundPath = true;
-                            return nc; 
-                        } 
-                    }
-                     if (!foundPath) isCriticallyNeedyAndStuck = true;
                 }
 
-                if (nc.task === 'IDLE') {
-                    if (isCriticallyNeedyAndStuck) {
-                        return nc; // Don't get a new job, just wait.
-                    }
-
+                if (nc.task === 'IDLE' && !assignedNeedTask) {
                     let taskFound = false;
                     
                     if (nc.carrying) {
@@ -746,6 +764,9 @@ export default function App() {
             }
 
             const newTotalMinerals = storedMinerals + mineralsThisTick;
+            const newSoftResets = finalColonists.reduce((sum, c) => sum + (c.softResetCount || 0), 0);
+            const newHardResets = finalColonists.reduce((sum, c) => sum + (c.hardResetCount || 0), 0);
+            setColonyStats({ softResets: newSoftResets, hardResets: newHardResets });
 
             if (mineralsThisTick !== 0) setStoredMinerals(prev => Math.max(0, prev + mineralsThisTick));
             if (gemsThisTick !== 0) setStoredGems(prev => Math.max(0, prev + gemsThisTick));
@@ -877,6 +898,8 @@ export default function App() {
             lastPosition: { x: startingPos.x + i, y: startY + 1 },
             criticallyLowEnergyTicks: 0,
             criticallyLowHungerTicks: 0,
+            softResetCount: 0,
+            hardResetCount: 0,
         }));
         setGrid(newGrid);
         setDesignations(newDesignations);
@@ -893,6 +916,7 @@ export default function App() {
         addLog('A small supply cache was found, providing 15 logs.');
         setApiFailed(false);
         setIsGenerating(false);
+        setColonyStats({ softResets: 0, hardResets: 0 });
     }, [generateProceduralGrid, addLog]);
     
     const closeEventPopup = useCallback(async () => {
@@ -918,7 +942,7 @@ export default function App() {
                 const newColonistData = storyData.colonists[0];
                 const newId = `Colonist-${currentColonistCount + 1}`;
                 const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
-                const newColonist: Colonist = {id: newId, name: newColonistData.name, backstory: newColonistData.backstory, x: startX, y: startY, task: 'IDLE', target: null, path: [], workTicks: 0, carrying: null, energy: C.MAX_ENERGY, happiness: C.MAX_HAPPINESS, patience: C.COLONIST_PATIENCE, hunger: 0, boredom: 0, stuckTicks: 0, lastPosition: {x: startX, y: startY}, criticallyLowEnergyTicks: 0, criticallyLowHungerTicks: 0};
+                const newColonist: Colonist = {id: newId, name: newColonistData.name, backstory: newColonistData.backstory, x: startX, y: startY, task: 'IDLE', target: null, path: [], workTicks: 0, carrying: null, energy: C.MAX_ENERGY, happiness: C.MAX_HAPPINESS, patience: C.COLONIST_PATIENCE, hunger: 0, boredom: 0, stuckTicks: 0, lastPosition: {x: startX, y: startY}, criticallyLowEnergyTicks: 0, criticallyLowHungerTicks: 0, softResetCount: 0, hardResetCount: 0};
                 
                 setColonists(prev => {
                     if (prev.length === currentColonistCount) { // Only add if no other instance has added one yet
@@ -1271,6 +1295,7 @@ export default function App() {
             colonistLogs,
             apiFailed,
             priorityTasks,
+            colonyStats,
         };
         const jsonString = JSON.stringify(gameState, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
@@ -1310,6 +1335,8 @@ export default function App() {
                     lastPosition: c.lastPosition || { x: c.x, y: c.y },
                     criticallyLowEnergyTicks: c.criticallyLowEnergyTicks || 0,
                     criticallyLowHungerTicks: c.criticallyLowHungerTicks || 0,
+                    softResetCount: c.softResetCount || 0,
+                    hardResetCount: c.hardResetCount || 0,
                 }));
 
                 setSeed(loadedState.seed);
@@ -1335,6 +1362,7 @@ export default function App() {
                 setColonistLogs(loadedState.colonistLogs);
                 setApiFailed(loadedState.apiFailed || false);
                 setPriorityTasks(loadedState.priorityTasks || []);
+                setColonyStats(loadedState.colonyStats || { softResets: 0, hardResets: 0 });
 
                 setSelectedColonist(null);
                 setEventPopup(null);
@@ -1399,7 +1427,13 @@ export default function App() {
             {showPrioritiesModal && <PriorityTasksModal tasks={priorityTasks} onReorder={setPriorityTasks} onClose={() => setShowPrioritiesModal(false)} />}
             
             {/* Top Stats Bar */}
-            <StatsPanel storedMinerals={storedMinerals} storedGems={storedGems} storedLogs={storedLogs} storedFood={storedFood} storedStone={storedStone} averageHappiness={averageHappiness} workEfficiency={workEfficiency} currentDay={currentDay} currentHour={currentHour} isDay={isDay} milestoneLevel={milestoneLevel} currentGoal={currentGoal}/>
+            <StatsPanel 
+                storedMinerals={storedMinerals} storedGems={storedGems} storedLogs={storedLogs} 
+                storedFood={storedFood} storedStone={storedStone} averageHappiness={averageHappiness} 
+                workEfficiency={workEfficiency} currentDay={currentDay} currentHour={currentHour} 
+                isDay={isDay} milestoneLevel={milestoneLevel} currentGoal={currentGoal}
+                totalSoftResets={colonyStats.softResets} totalHardResets={colonyStats.hardResets}
+            />
             
             <main className="flex-grow flex flex-row gap-2 overflow-hidden">
               {/* Main Content: Canvas */}
@@ -1411,11 +1445,13 @@ export default function App() {
               </div>
               
               {/* Right Sidebar */}
-              <aside className="w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col gap-2 overflow-y-auto pr-1">
+              <aside className="w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col gap-2 pr-1">
                 <CombinedInspectorPanel colonist={selectedColonist} tile={hoveredTile} />
                 <ColonistWorkLogPanel colonists={colonists} logs={colonistLogs} tickCount={tickCount} onSelect={setSelectedColonist} selectedId={selectedColonist?.id}/>
-                <ColonyChronologyPanel chronology={chronology} colonyName={colonyName} asteroidName={asteroidName} isExpanded={expandedPanel === 'chronology'} onToggleExpand={() => setExpandedPanel(p => p === 'chronology' ? 'none' : 'chronology')} />
-                <GameLogPanel log={gameLog} isExpanded={expandedPanel === 'log'} onToggleExpand={() => setExpandedPanel(p => p === 'log' ? 'none' : 'log')} />
+                <div className="flex-grow flex flex-col gap-2 overflow-hidden">
+                    <ColonyChronologyPanel chronology={chronology} colonyName={colonyName} asteroidName={asteroidName} isExpanded={expandedPanel === 'chronology'} onToggleExpand={() => setExpandedPanel(p => p === 'chronology' ? 'none' : 'chronology')} />
+                    <GameLogPanel log={gameLog} isExpanded={expandedPanel === 'log'} onToggleExpand={() => setExpandedPanel(p => p === 'log' ? 'none' : 'log')} />
+                </div>
               </aside>
             </main>
             

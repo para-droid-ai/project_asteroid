@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Colonist, Tile, TileType } from '../types';
 import { MAX_ENERGY, MAX_HAPPINESS, MAX_HUNGER, MAX_BOREDOM, CROP_GROWTH_DURATION, SAPLING_TO_TREE_TICKS } from '../constants';
@@ -26,7 +25,11 @@ const StatBar = ({ label, value, max, colorClass }: { label: string, value: numb
 export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ colonist, tile }) => {
     if (colonist) {
         return (
-            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 space-y-3 min-h-[220px]">
+            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 space-y-3 min-h-[220px] relative flex-shrink-0">
+                <div className="absolute top-2 right-3 text-xs text-gray-400 text-right">
+                    <p title="Automatic task resets due to being stuck">Stuck Resets: <span className="font-semibold text-orange-400">{colonist.softResetCount || 0}</span></p>
+                    <p title="Emergency teleports due to being severely stuck">Teleports: <span className="font-semibold text-red-500">{colonist.hardResetCount || 0}</span></p>
+                </div>
                 <p className="text-lg font-bold text-cyan-400">{colonist.name}</p>
                 <p>Task: <span className="font-semibold text-yellow-300">{colonist.task}</span></p>
                 
@@ -40,7 +43,7 @@ export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ 
     
     if (tile) {
         return (
-            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 space-y-2 min-h-[220px]">
+            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 space-y-2 min-h-[220px] flex-shrink-0">
                 <p className="text-lg font-bold text-cyan-400">Tile Info</p>
                 <p>Type: <span className="font-semibold text-yellow-300">{tile.type}</span></p>
                 <p>Coords: <span className="text-gray-400">({tile.x}, {tile.y})</span></p>
@@ -55,7 +58,7 @@ export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ 
     }
 
     return (
-        <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 min-h-[220px] flex items-center justify-center text-gray-500">
+        <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 min-h-[220px] flex items-center justify-center text-gray-500 flex-shrink-0">
             <p>Select a colonist or hover over a tile to inspect</p>
         </div>
     );

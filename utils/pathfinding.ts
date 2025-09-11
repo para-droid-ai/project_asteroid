@@ -1,4 +1,3 @@
-
 import { Grid, Point, TileType, Colonist, Designations, DesignationType } from '../types';
 import { GRID_WIDTH, GRID_HEIGHT } from '../constants';
 
@@ -13,9 +12,16 @@ export const findPath = (
     if (!currentGrid || !start || !end) return null;
     const queue: Point[][] = [[start]];
     const visited = new Set([`${start.x},${start.y}`]);
+    const pawnPositions = new Set(currentPawns.map(p => `${p.x},${p.y}`));
     
     const isWalkable = (x: number, y: number) => {
         if (y < 0 || y >= GRID_HEIGHT || x < 0 || x >= GRID_WIDTH) return false;
+
+        // A tile is not walkable if another pawn is on it.
+        if (pawnPositions.has(`${x},${y}`)) {
+            return false;
+        }
+
         const tileType = currentGrid[y]?.[x]?.type;
         const designationType = designations[y]?.[x];
 

@@ -16,7 +16,7 @@ export const ColonistWorkLogPanel: React.FC<ColonistWorkLogPanelProps> = ({ colo
     const activityKey = [ {color: "#facc15", label: "Mining"}, {color: "#4ade80", label: "Building"}, {color: "#854d0e", label: "Chopping"}, {color: "#fde047", label: "Hauling"}, {color: "#818cf8", label: "Resting"}, {color: "#6b7280", label: "Idle"}, {color: "#d1d5db", label: "Moving"} ];
 
     return (
-        <div className="flex flex-col bg-gray-800 p-2 border-2 border-gray-600 rounded-md">
+        <div className="flex flex-col bg-gray-800 p-2 border-2 border-gray-600 rounded-md flex-shrink-0">
             <div className="overflow-y-auto pr-2">
                 {colonists.map((col, idx) => {
                     const logForColonist = logs[idx];
