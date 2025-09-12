@@ -25,7 +25,7 @@ export const DOOR_COST = 1; // Logs
 export const FLOOR_COST = 1; // Logs
 export const BED_COST = 3; // Logs
 export const STORAGE_COST = 2; // Logs
-export const HYDROPONICS_COST = { logs: 2, stone: 2, minerals: 3 };
+export const HYDROPONICS_COST = { logs: 2, stone: 2, minerals: 1 };
 export const ARCADE_COST = { logs: 4, stone: 4, minerals: 6, gems: 2 };
 export const STONE_WALL_COST = 1; // Stone
 export const STONE_FLOOR_COST = 1; // Stone
@@ -40,6 +40,7 @@ export const COLONIST_PATIENCE = 5;
 export const MAX_HUNGER = 1000;
 export const HUNGER_INCREASE_RATE = 0.5;
 export const LOW_HUNGER_THRESHOLD = 300;
+export const URGENT_HUNGER_THRESHOLD = 800;
 export const FOOD_NUTRITION = 500;
 export const MAX_BOREDOM = 1000;
 export const BOREDOM_INCREASE_RATE = 0.4;
@@ -52,6 +53,7 @@ export const CRITICAL_ENERGY_THRESHOLD = 50;
 export const CRITICAL_HUNGER_THRESHOLD = 950;
 export const TICKS_TO_DEATH = 300; // 30 seconds
 export const HAPPINESS_PENALTY_PER_DEATH = 20;
+export const INITIAL_FOOD = 25;
 
 export const PALETTE = {
     BACKGROUND: '#1a1a2e', NIGHT: '#11141f', ROCK: '#6b7280', MINERAL: '#facc15', GEM: '#9333ea', COLONIST: '#ffffff',
@@ -64,7 +66,8 @@ export const PALETTE = {
     WOOD_WALL: '#a16207',
     STONE_WALL: '#a1a1aa',
     DOOR: '#f59e0b', SAPLING: '#65a30d',
-    HYDROPONICS: '#059669', ARCADE: '#db2777', DROPPED_FOOD: '#fca5a5', DROPPED_STONE: '#9ca3af'
+    HYDROPONICS: '#059669', ARCADE: '#db2777', DROPPED_FOOD: '#fca5a5', DROPPED_STONE: '#9ca3af',
+    CRITICAL_NEED_FLASH: '#ef4444',
 };
 
 export const CHARS = {

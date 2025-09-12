@@ -56,6 +56,8 @@ export type Designations = (DesignationType | null)[][];
 
 export type CarryingType = TileType.MINERAL | TileType.GEM | 'LOGS' | 'FOOD' | 'STONE' | null;
 
+export type ColonistRole = 'COOK' | 'BUILDER' | 'MINER' | 'HAULER';
+
 export interface Colonist extends Point {
   id: string;
   name: string;
@@ -72,6 +74,7 @@ export interface Colonist extends Point {
   hunger: number;
   boredom: number;
   stuckTicks: number;
+  roles: ColonistRole[];
   lastPosition?: Point;
   criticallyLowEnergyTicks: number;
   criticallyLowHungerTicks: number;
