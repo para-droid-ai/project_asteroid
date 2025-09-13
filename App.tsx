@@ -118,7 +118,6 @@ export default function App() {
     const [colonistLogs, setColonistLogs] = useState<ColonistLog[]>([]);
     const [priorityTasks, setPriorityTasks] = useState<PriorityTask[]>([]);
     const [showPrioritiesModal, setShowPrioritiesModal] = useState(false);
-    // FIX: Add state to prevent concurrent event generation API calls.
     const [isEventGenerationRunning, setIsEventGenerationRunning] = useState(false);
 
     const isDesignating = useRef(false);
@@ -249,7 +248,6 @@ export default function App() {
 
     }, [chronology, summarizeGameState, addChronologyEntry, isNarrating, apiFailed, addLog]);
 
-    // FIX: Implement the AI Dungeon Master function.
     const generateDailyEvent = useCallback(async (): Promise<GameEvent | null> => {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
         const summary = summarizeGameState();
@@ -435,7 +433,7 @@ export default function App() {
                     
                     const escapeTarget = storageTargets.length > 0 ? storageTargets[0] : { x: Math.floor(C.GRID_WIDTH / 2), y: Math.floor(C.GRID_HEIGHT / 2) };
 
-                    const emergencyPath = findPath(nc, escapeTarget, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx), Object.values(DesignationType));
+                    const emergencyPath = findPath(nc, escapeTarget, newGrid);
                     
                     if (emergencyPath) {
                         addLog(`${nc.name} is trapped! Initiating emergency pathing to escape.`, 'event');
@@ -519,7 +517,7 @@ export default function App() {
                                 bedTargets.sort((a,b) => a.dist - b.dist);
 
                                 for(const target of bedTargets) {
-                                    const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                    const path = findPath(nc, target, newGrid);
                                     if (path) {
                                         dropCarriedItem(nc);
                                         nc.task = 'MOVING_TO_REST'; nc.path = path.slice(1); nc.target = target; nc.patience = C.COLONIST_PATIENCE;
@@ -537,7 +535,7 @@ export default function App() {
                                     for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.STORAGE) storageTargets.push({x,y, dist: distance(nc, {x,y})});
                                     storageTargets.sort((a,b) => a.dist - b.dist);
                                     for(const target of storageTargets) {
-                                        const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                        const path = findPath(nc, target, newGrid);
                                         if (path) {
                                             dropCarriedItem(nc);
                                             nc.task = 'MOVING_TO_EAT'; nc.path = path.slice(1); nc.target = target; nc.patience = C.COLONIST_PATIENCE;
@@ -552,7 +550,7 @@ export default function App() {
                                     for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION && !claimedTargetsThisTick.has(`${x},${y}`)) harvestTargets.push({x, y, dist: distance(nc, { x, y }) }); }
                                     harvestTargets.sort((a,b) => a.dist-b.dist);
                                     for(const target of harvestTargets) {
-                                        const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx));
+                                        const path = findPath(nc, target, newGrid);
                                         if(path) { dropCarriedItem(nc); nc.task = 'MOVING_TO_HARVEST'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and will harvest food.`); claimedTargetsThisTick.add(`${target.x},${target.y}`); foodTaskFound = true; break; }
                                     }
                                     if(!foodTaskFound) {
@@ -560,7 +558,7 @@ export default function App() {
                                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined && !claimedTargetsThisTick.has(`${x},${y}`)) plantTargets.push({x,y,dist:distance(nc,{x,y})}); }
                                         plantTargets.sort((a,b)=>a.dist-b.dist);
                                         for(const target of plantTargets) {
-                                            const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx));
+                                            const path = findPath(nc, target, newGrid);
                                             if(path) { dropCarriedItem(nc); nc.task = 'MOVING_TO_PLANT'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and will plant new crops.`); claimedTargetsThisTick.add(`${target.x},${target.y}`); foodTaskFound = true; break; }
                                         }
                                     }
@@ -573,7 +571,7 @@ export default function App() {
                                 for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.ARCADE_MACHINE && !claimedTargetsThisTick.has(`${x},${y}`)) arcadeTargets.push({x,y, dist: distance(nc, {x,y})});
                                 arcadeTargets.sort((a,b) => a.dist - b.dist);
                                 for(const target of arcadeTargets) {
-                                    const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                                    const path = findPath(nc, target, newGrid);
                                     if (path) {
                                         dropCarriedItem(nc);
                                         nc.task = 'MOVING_TO_PLAY'; nc.path = path.slice(1); nc.target = target; nc.patience = C.COLONIST_PATIENCE;
@@ -600,7 +598,7 @@ export default function App() {
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) storageTargets.push({x, y, dist: distance(nc, {x,y})});
                         storageTargets.sort((a,b) => a.dist - b.dist);
                         for(const target of storageTargets) {
-                            const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; break;}
+                            const path = findPath(nc, target, newGrid); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; break;}
                         }
                     }
 
@@ -612,7 +610,7 @@ export default function App() {
                         }
                         droppedTargets.sort((a,b)=>a.dist-b.dist);
                         for(const target of droppedTargets) {
-                            const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx));
+                            const path = findPath(nc, target, newGrid);
                             if(path && path.length > 1) { nc.task = 'MOVING_TO_HAUL'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; claimedTargetsThisTick.add(`${target.x},${target.y}`); break;}
                         }
                     }
@@ -622,39 +620,57 @@ export default function App() {
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION && !claimedTargetsThisTick.has(`${x},${y}`)) harvestTargets.push({x, y, dist: distance(nc, { x, y }) }); }
                         harvestTargets.sort((a,b) => a.dist - b.dist);
                         for(const target of harvestTargets) {
-                            const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                            const path = findPath(nc, target, newGrid);
                             if (path && path.length > 1) { nc.task = 'MOVING_TO_HARVEST'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; claimedTargetsThisTick.add(`${target.x},${target.y}`); break; }
                         }
                     }
 
                     if (!taskFound) {
                         for (const task of priorityTasks) {
-                            const {x, y, type} = task;
+                            const { x, y, type } = task;
                             if (claimedTargetsThisTick.has(`${x},${y}`)) continue;
-
+                    
                             let canDoTask = false;
-                            if((type.includes('BUILD') || type.includes('UPGRADE')) && nc.roles.includes('BUILDER')) canDoTask = true;
-                            if((type === DesignationType.CHOP || type === DesignationType.MINE) && nc.roles.includes('MINER')) canDoTask = true;
-
+                            if ((type.includes('BUILD') || type.includes('UPGRADE')) && nc.roles.includes('BUILDER')) canDoTask = true;
+                            if ((type === DesignationType.CHOP || type === DesignationType.MINE) && nc.roles.includes('MINER')) canDoTask = true;
+                    
                             if (canDoTask) {
-                                 const path = findPath(nc, {x,y}, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx), [type]);
-                                if (path && path.length > 1) {
-                                    if(type.includes('BUILD') || type.includes('UPGRADE')) nc.task = 'MOVING_TO_BUILD';
-                                    else if(type === DesignationType.CHOP) nc.task = 'MOVING_TO_CHOP';
-                                    else if(type === DesignationType.MINE) nc.task = 'MOVING_TO_MINE';
-                                    nc.target = {x,y}; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; claimedTargetsThisTick.add(`${x},${y}`);
+                                const targetPoint = { x, y };
+                                const neighbors = [{ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 }];
+                                let bestPath: Point[] | null = null;
+                    
+                                for (const neighbor of neighbors) {
+                                    if (validTile(newGrid, neighbor.y, neighbor.x)) {
+                                        const path = findPath(nc, neighbor, newGrid);
+                                        if (path && (!bestPath || path.length < bestPath.length)) {
+                                            bestPath = path;
+                                        }
+                                    }
+                                }
+                    
+                                if (bestPath) {
+                                    if (type.includes('BUILD') || type.includes('UPGRADE')) nc.task = 'MOVING_TO_BUILD';
+                                    else if (type === DesignationType.CHOP) nc.task = 'MOVING_TO_CHOP';
+                                    else if (type === DesignationType.MINE) nc.task = 'MOVING_TO_MINE';
+                    
+                                    nc.target = targetPoint;
+                                    nc.path = bestPath.slice(1);
+                                    nc.patience = C.COLONIST_PATIENCE;
+                                    taskFound = true;
+                                    claimedTargetsThisTick.add(`${x},${y}`);
                                     break;
                                 }
                             }
                         }
                     }
 
+
                     if (!taskFound && nc.roles.includes('COOK')) {
                         let plantTargets: (Point & { dist: number })[] = [];
                         for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined && !claimedTargetsThisTick.has(`${x},${y}`)) plantTargets.push({x,y,dist:distance(nc,{x,y})}); }
                         plantTargets.sort((a,b)=>a.dist-b.dist);
                         for(const target of plantTargets) {
-                             const path = findPath(nc, target, newGrid, newDesignations, prevColonists.filter((_, i) => i !== idx));
+                             const path = findPath(nc, target, newGrid);
                              if (path && path.length > 1) { nc.task = 'MOVING_TO_PLANT'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; claimedTargetsThisTick.add(`${target.x},${target.y}`); break; }
                         }
                     }
@@ -699,7 +715,7 @@ export default function App() {
                             }
                             let nearestStorage: Point | null = null, minStorageDist = Infinity;
                             for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
+                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
                         }
                         else if(nc.task === 'MOVING_TO_STORAGE') {
                             if (nc.carrying === TileType.MINERAL) mineralsThisTick++;
@@ -734,7 +750,7 @@ export default function App() {
 
                             let nearestStorage: Point | null = null, minStorageDist = Infinity;
                             for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
-                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, newDesignations, prevColonists.filter((_,i)=>i!==idx)); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
+                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
                             
                             nc.workTicks = 0; nc.target = null;
                             return nc;
@@ -1030,7 +1046,6 @@ export default function App() {
         return () => clearInterval(intervalId);
     }, [isPlaying, grid, gameTick, showIntro, eventPopup]);
 
-    // FIX: Add a useEffect hook to trigger the AI event director once per day.
     useEffect(() => {
         if (isPlaying && !isEventGenerationRunning && tickCount > 0 && (tickCount % C.DAY_LENGTH_TICKS) === 1) {
             setIsEventGenerationRunning(true);

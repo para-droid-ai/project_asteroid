@@ -1,31 +1,21 @@
-import { Grid, Point, TileType, Colonist, Designations, DesignationType } from '../types';
+import { Grid, Point, TileType } from '../types';
 import { GRID_WIDTH, GRID_HEIGHT } from '../constants';
 
 export const findPath = (
     start: Point, 
     end: Point, 
-    currentGrid: Grid, 
-    designations: Designations,
-    currentPawns: Colonist[] = [],
-    walkableDesignations: DesignationType[] = []
+    currentGrid: Grid,
 ): Point[] | null => {
     if (!currentGrid || !start || !end) return null;
     const queue: Point[][] = [[start]];
     const visited = new Set([`${start.x},${start.y}`]);
-    const pawnPositions = new Set(currentPawns.map(p => `${p.x},${p.y}`));
     
     const isWalkable = (x: number, y: number) => {
         if (y < 0 || y >= GRID_HEIGHT || x < 0 || x >= GRID_WIDTH) return false;
 
-        // A tile is not walkable if another pawn is on it.
-        if (pawnPositions.has(`${x},${y}`)) {
-            return false;
-        }
-
         const tileType = currentGrid[y]?.[x]?.type;
-        const designationType = designations[y]?.[x];
 
-        const isNormallyWalkable = tileType === TileType.EMPTY || 
+        return tileType === TileType.EMPTY || 
                tileType === TileType.STORAGE || 
                tileType === TileType.DROPPED_MINERAL || 
                tileType === TileType.DROPPED_GEM || 
@@ -39,15 +29,11 @@ export const findPath = (
                tileType === TileType.ARCADE_MACHINE ||
                tileType === TileType.DROPPED_FOOD ||
                tileType === TileType.DROPPED_STONE;
-        
-        if (isNormallyWalkable) return true;
-
-        if (designationType && walkableDesignations.includes(designationType)) {
-            return true;
-        }
-
-        return false;
     };
+
+    if (!isWalkable(end.x, end.y)) return null;
+
+    if (start.x === end.x && start.y === end.y) return [start];
 
     while (queue.length > 0) {
         const path = queue.shift() as Point[];
