@@ -6,6 +6,7 @@ interface CombinedInspectorPanelProps {
     colonist: Colonist | null;
     tile: Tile | null;
     onUpdateColonistRoles: (colonistId: string, roles: ColonistRole[]) => void;
+    onViewTasks: (colonist: Colonist) => void;
 }
 
 const StatBar = ({ label, value, max, colorClass }: { label: string, value: number, max: number, colorClass: string }) => {
@@ -30,7 +31,7 @@ const RoleCheckbox = ({ role, isChecked, onChange }: { role: string, isChecked: 
     </label>
 );
 
-export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ colonist, tile, onUpdateColonistRoles }) => {
+export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ colonist, tile, onUpdateColonistRoles, onViewTasks }) => {
     if (colonist) {
         const handleRoleChange = (role: ColonistRole) => {
             const newRoles = colonist.roles.includes(role)
@@ -46,7 +47,10 @@ export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ 
                     <p title="Emergency teleports due to being severely stuck">Teleports: <span className="font-semibold text-red-500">{colonist.hardResetCount || 0}</span></p>
                 </div>
                 <p className="text-lg font-bold text-cyan-400">{colonist.name}</p>
-                <p className="text-sm">Task: <span className="font-semibold text-yellow-300">{colonist.task}</span></p>
+                <div className="flex items-center justify-between">
+                    <p className="text-sm">Task: <span className="font-semibold text-yellow-300">{colonist.task}</span></p>
+                    <button onClick={() => onViewTasks(colonist)} className="text-xs bg-gray-600 hover:bg-gray-500 rounded px-2 py-0.5">Task List</button>
+                </div>
 
                 <div className="space-y-1 pt-1">
                     <StatBar label="Energy" value={colonist.energy} max={MAX_ENERGY} colorClass="bg-green-500" />

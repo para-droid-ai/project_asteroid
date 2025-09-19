@@ -18,6 +18,7 @@ interface BuildMenuProps {
     onUnstuck: () => void;
     onToggleSettings: () => void;
     onTogglePriorities: () => void;
+    onToggleDirector: () => void;
 }
 
 const SettingsIcon = () => (
@@ -26,7 +27,8 @@ const SettingsIcon = () => (
 
 export const BuildMenu: React.FC<BuildMenuProps> = ({ 
     onSetDesignation, onSetInspect, currentMode, designationType, storedLogs, storedMinerals, storedStone,
-    isPlaying, onTogglePlay, onRegenerate, seed, onSeedChange, onUnstuck, onToggleSettings, onTogglePriorities
+    isPlaying, onTogglePlay, onRegenerate, seed, onSeedChange, onUnstuck, onToggleSettings, onTogglePriorities,
+    onToggleDirector
 }) => (
     <div className="w-full border-y-2 border-gray-700 bg-gray-800 p-2 flex items-center gap-2 text-sm">
         <div className="flex items-center gap-1 flex-wrap">
@@ -34,6 +36,7 @@ export const BuildMenu: React.FC<BuildMenuProps> = ({
             <button onClick={onSetInspect} className={`px-3 py-1 rounded ${currentMode === 'INSPECT' ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Inspect</button>
             <button onClick={() => onSetDesignation(DesignationType.HARVEST)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.HARVEST ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Harvest</button>
              <button onClick={onTogglePriorities} className="px-3 py-1 rounded bg-yellow-700 hover:bg-yellow-600">Priorities</button>
+             <button onClick={onToggleDirector} className="px-3 py-1 rounded bg-purple-700 hover:bg-purple-600">Director</button>
             <div className="h-5 border-l border-gray-600 mx-1"></div>
             
             {/* Wood Construction */}

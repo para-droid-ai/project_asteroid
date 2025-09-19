@@ -115,3 +115,41 @@ export interface PriorityTask {
   y: number;
   type: DesignationType;
 }
+
+export interface SimulationSettings {
+  allowNewColonists: boolean;
+}
+
+export interface ColonyStats {
+    softResets: number;
+    hardResets: number;
+}
+
+export interface GameState {
+    grid: Grid;
+    designations: Designations;
+    colonists: Colonist[];
+    storedMinerals: number;
+    storedGems: number;
+    storedLogs: number;
+    storedStone: number;
+    storedFood: number;
+    milestoneLevel: number;
+    currentGoal: number;
+    activeEvents: GameEvent[];
+    gameLog: GameLogItem[];
+    tickCount: number;
+    currentDay: number;
+    currentHour: number;
+    seed: string;
+    colonyName: string;
+    asteroidName: string;
+    chronology: ChronologyEntry[];
+    colonistLogs: ColonistLog[];
+    priorityTasks: PriorityTask[];
+    simulationSettings: SimulationSettings;
+    colonyStats: ColonyStats;
+    averageHappiness: number;
+    apiFailed: boolean;
+    version: string;
+}

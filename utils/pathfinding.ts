@@ -5,6 +5,7 @@ export const findPath = (
     start: Point, 
     end: Point, 
     currentGrid: Grid,
+    pawnLocations?: Set<string>,
 ): Point[] | null => {
     if (!currentGrid || !start || !end) return null;
     const queue: Point[][] = [[start]];
@@ -12,6 +13,11 @@ export const findPath = (
     
     const isWalkable = (x: number, y: number) => {
         if (y < 0 || y >= GRID_HEIGHT || x < 0 || x >= GRID_WIDTH) return false;
+
+        // A tile is not walkable if another pawn is on it, unless it's the starting tile of the path.
+        if (pawnLocations && pawnLocations.has(`${x},${y}`) && (x !== start.x || y !== start.y)) {
+            return false;
+        }
 
         const tileType = currentGrid[y]?.[x]?.type;
 
@@ -31,7 +37,14 @@ export const findPath = (
                tileType === TileType.DROPPED_STONE;
     };
 
-    if (!isWalkable(end.x, end.y)) return null;
+    if (!isWalkable(end.x, end.y)) {
+        // If the end point itself is not walkable (e.g., occupied by another colonist), fail the pathfinding.
+        // This is crucial to prevent colonists from queueing up for an already-taken bed.
+        if (pawnLocations && pawnLocations.has(`${end.x},${end.y}`)) {
+            return null;
+        }
+    }
+
 
     if (start.x === end.x && start.y === end.y) return [start];
 

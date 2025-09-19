@@ -1,0 +1,3507 @@
+project_a_V2\
+├── components
+│   ├── BottomBar.tsx
+│   ├── BuildMenu.tsx
+│   ├── ColonistQuickSelectPanel.tsx
+│   ├── ColonistWorkLogPanel.tsx
+│   ├── ColonyAlertsPanel.tsx
+│   ├── ColonyChronologyPanel.tsx
+│   ├── CombinedInspectorPanel.tsx
+│   ├── DirectorModal.tsx
+│   ├── EventModal.tsx
+│   ├── EventsPanel.tsx
+│   ├── GameLogPanel.tsx
+│   ├── IntroModal.tsx
+│   ├── LeftSidebar.tsx
+│   ├── Legend.tsx
+│   ├── PriorityTasksModal.tsx
+│   ├── RightInfoPanel.tsx
+│   ├── SettingsModal.tsx
+│   ├── StatsPanel.tsx
+│   └── TopBar.tsx
+├── utils
+│   ├── fallbackData.ts
+│   ├── geometry.ts
+│   ├── noise.ts
+│   └── pathfinding.ts
+├── .gitignore
+├── 0.10.0-update.md
+├── 3iatlas.md
+├── App.tsx
+├── constants.ts
+├── gemini.md
+├── index.html
+├── index.tsx
+├── metadata.json
+├── package.json
+├── README.md
+├── tsconfig.json
+├── types.ts
+└── vite.config.ts
+
+<file path="components/BottomBar.tsx">
+import React from 'react';
+import { LOW_MORALE_THRESHOLD } from '../constants';
+import { Legend } from './Legend';
+
+interface BottomBarProps {
+    storedMinerals: number;
+    averageHappiness: number;
+    workEfficiency: number;
+    milestoneLevel: number;
+    currentGoal: number;
+    totalSoftResets: number;
+    totalHardResets: number;
+}
+
+export const BottomBar: React.FC<BottomBarProps> = ({ 
+    storedMinerals,
+    averageHappiness, 
+    workEfficiency, 
+    milestoneLevel, 
+    currentGoal, 
+    totalSoftResets, 
+    totalHardResets 
+}) => (
+    <div className="border-t-2 border-gray-700 bg-gray-800 px-4 py-1 w-full flex items-center justify-between text-sm flex-shrink-0">
+        <div className="flex items-center gap-x-3">
+            <span>Milestone: <span className="font-bold text-green-400">{milestoneLevel}</span></span>
+            <span className="text-gray-600">|</span>
+            <span>Minerals Goal: <span className="font-bold text-yellow-400">{storedMinerals} / {currentGoal}</span></span>
+            <span className="text-gray-600">|</span>
+            <span>Avg. Happiness: <span className={`font-bold ${averageHappiness < LOW_MORALE_THRESHOLD ? 'text-red-500' : 'text-green-400'}`}>{averageHappiness.toFixed(0)}%</span></span>
+            <span>Work Efficiency: <span className="font-bold text-cyan-400">{workEfficiency.toFixed(1)}%</span></span>
+            <span className="text-gray-600">|</span>
+            <span title="Automatic task resets due to being stuck">Stuck Resets: <span className="font-bold text-orange-400">{totalSoftResets}</span></span>
+            <span title="Emergency teleports due to being severely stuck">Teleports: <span className="font-bold text-red-500">{totalHardResets}</span></span>
+        </div>
+        <Legend />
+    </div>
+);
+
+</file>
+<file path="components/BuildMenu.tsx">
+import React from 'react';
+import { DesignationType, InteractionMode } from '../types';
+import { WALL_COST, DOOR_COST, BED_COST, STORAGE_COST, HYDROPONICS_COST, ARCADE_COST, STONE_FLOOR_COST, STONE_WALL_COST, FLOOR_COST } from '../constants';
+
+interface BuildMenuProps {
+    onSetDesignation: (type: DesignationType) => void;
+    onSetInspect: () => void;
+    currentMode: InteractionMode;
+    designationType: DesignationType | null;
+    storedLogs: number;
+    storedMinerals: number;
+    storedStone: number;
+    isPlaying: boolean;
+    onTogglePlay: () => void;
+    onRegenerate: () => void;
+    seed: string;
+    onSeedChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onUnstuck: () => void;
+    onToggleSettings: () => void;
+    onTogglePriorities: () => void;
+    onToggleDirector: () => void;
+}
+
+const SettingsIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+);
+
+export const BuildMenu: React.FC<BuildMenuProps> = ({ 
+    onSetDesignation, onSetInspect, currentMode, designationType, storedLogs, storedMinerals, storedStone,
+    isPlaying, onTogglePlay, onRegenerate, seed, onSeedChange, onUnstuck, onToggleSettings, onTogglePriorities,
+    onToggleDirector
+}) => (
+    <div className="w-full border-y-2 border-gray-700 bg-gray-800 p-2 flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-1 flex-wrap">
+            {/* General */}
+            <button onClick={onSetInspect} className={`px-3 py-1 rounded ${currentMode === 'INSPECT' ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Inspect</button>
+            <button onClick={() => onSetDesignation(DesignationType.HARVEST)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.HARVEST ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Harvest</button>
+             <button onClick={onTogglePriorities} className="px-3 py-1 rounded bg-yellow-700 hover:bg-yellow-600">Priorities</button>
+             <button onClick={onToggleDirector} className="px-3 py-1 rounded bg-purple-700 hover:bg-purple-600">Director</button>
+            <div className="h-5 border-l border-gray-600 mx-1"></div>
+            
+            {/* Wood Construction */}
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_WOOD_FLOOR)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_WOOD_FLOOR ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Wood Floor ({FLOOR_COST}L)</button>
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_WOOD_WALL)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_WOOD_WALL ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Wood Wall ({WALL_COST}L)</button>
+            <div className="h-5 border-l border-gray-600 mx-1"></div>
+
+            {/* Stone Construction & Upgrades */}
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_STONE_FLOOR)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_STONE_FLOOR ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Stone Floor ({STONE_FLOOR_COST}S)</button>
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_STONE_WALL)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_STONE_WALL ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Stone Wall ({STONE_WALL_COST}S)</button>
+            <button onClick={() => onSetDesignation(DesignationType.UPGRADE_TO_STONE_FLOOR)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.UPGRADE_TO_STONE_FLOOR ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Upg. Floor ({STONE_FLOOR_COST}S)</button>
+            <button onClick={() => onSetDesignation(DesignationType.UPGRADE_TO_STONE_WALL)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.UPGRADE_TO_STONE_WALL ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Upg. Wall ({STONE_WALL_COST}S)</button>
+            <div className="h-5 border-l border-gray-600 mx-1"></div>
+
+            {/* Furniture */}
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_DOOR)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_DOOR ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Door ({DOOR_COST}L)</button>
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_BED)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_BED ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Bed ({BED_COST}L)</button>
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_STORAGE)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_STORAGE ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Storage ({STORAGE_COST}L)</button>
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_HYDROPONICS)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_HYDROPONICS ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Hydroponics ({HYDROPONICS_COST.logs}L, {HYDROPONICS_COST.stone}S, {HYDROPONICS_COST.minerals}M)</button>
+            <button onClick={() => onSetDesignation(DesignationType.BUILD_ARCADE)} className={`px-3 py-1 rounded ${currentMode === 'DESIGNATE' && designationType === DesignationType.BUILD_ARCADE ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>Arcade ({ARCADE_COST.logs}L, {ARCADE_COST.stone}S, {ARCADE_COST.minerals}M, {ARCADE_COST.gems}G)</button>
+        </div>
+
+        <div className="flex-grow"></div>
+
+        <div className="flex items-center gap-2">
+             <button onClick={onUnstuck} className="px-3 py-1 rounded bg-orange-700 hover:bg-orange-600">Unstuck</button>
+             <div className="flex items-center gap-1">
+                <button onClick={onRegenerate} className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500">Regen</button>
+                <input type="text" value={seed} onChange={onSeedChange} className="bg-gray-900 border border-gray-600 rounded px-2 py-1 w-24 text-xs" placeholder="seed..."/>
+            </div>
+            <button onClick={onTogglePlay} className="px-4 py-1 rounded bg-blue-600 hover:bg-blue-500 font-semibold w-20">{isPlaying ? 'Pause' : 'Play'}</button>
+            <button onClick={onToggleSettings} className="p-1.5 rounded bg-gray-600 hover:bg-gray-500">
+                <SettingsIcon />
+            </button>
+        </div>
+    </div>
+);
+</file>
+<file path="components/ColonistQuickSelectPanel.tsx">
+
+import React from 'react';
+import { Colonist } from '../types';
+import { COLONIST_LOG_COLORS } from '../constants';
+
+interface ColonistQuickSelectPanelProps {
+    colonists: Colonist[];
+    onSelect: (colonist: Colonist) => void;
+    selectedId: string | undefined;
+}
+
+export const ColonistQuickSelectPanel: React.FC<ColonistQuickSelectPanelProps> = ({colonists, onSelect, selectedId}) => (
+    <div className="w-full border-2 border-gray-700 bg-gray-800 p-2 rounded-md flex flex-col gap-1">
+        <h3 className="text-md font-bold text-center text-gray-400 mb-1">Colonists ({colonists.length})</h3>
+        {colonists.map((c, i) => (
+            <button key={c.id} onClick={() => onSelect(c)} className={`w-full text-left px-3 py-1 rounded text-sm ${selectedId === c.id ? 'bg-cyan-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                <span className={`inline-block mr-2 w-3 h-3 rounded-full ${COLONIST_LOG_COLORS[i % COLONIST_LOG_COLORS.length]}`}/>
+                {c.name}
+            </button>
+        ))}
+    </div>
+);
+</file>
+<file path="components/ColonistWorkLogPanel.tsx">
+import React from 'react';
+import { Colonist, ColonistLog } from '../types';
+import { COLONIST_LOG_COLORS } from '../constants';
+
+interface ColonistWorkLogPanelProps {
+    colonists: Colonist[];
+    logs: ColonistLog[];
+    tickCount: number;
+    onSelect: (colonist: Colonist) => void;
+    selectedId: string | undefined;
+}
+
+export const ColonistWorkLogPanel: React.FC<ColonistWorkLogPanelProps> = ({ colonists, logs, tickCount, onSelect, selectedId }) => {
+    const timelineLength = 100;
+    const startTick = Math.max(0, tickCount - timelineLength);
+    const activityKey = [ {color: "#facc15", label: "Mining"}, {color: "#4ade80", label: "Building"}, {color: "#854d0e", label: "Chopping"}, {color: "#fde047", label: "Hauling"}, {color: "#818cf8", label: "Resting"}, {color: "#6b7280", label: "Idle"}, {color: "#d1d5db", label: "Moving"} ];
+
+    return (
+        <div className="flex flex-col bg-gray-800 p-2 border-2 border-gray-600 rounded-md flex-shrink-0">
+            <div className="overflow-y-auto pr-2">
+                {colonists.map((col, idx) => {
+                    const logForColonist = logs[idx];
+                    if (!logForColonist || logForColonist.length === 0) {
+                        return (
+                             <div key={col.id} onClick={() => onSelect(col)} className={`flex items-center mb-1 p-1 rounded cursor-pointer ${selectedId === col.id ? 'bg-cyan-700' : 'hover:bg-gray-700'}`}>
+                                <span className={`inline-block mr-2 w-4 h-4 rounded-full ${COLONIST_LOG_COLORS[idx % COLONIST_LOG_COLORS.length]}`}/>
+                                <span className="w-24 text-xs font-semibold">{col.name}</span>
+                                <div className="flex-1 flex items-center bg-gray-900 rounded-sm overflow-hidden h-4 italic text-xs text-gray-500 justify-center">No log data</div>
+                             </div>
+                        )
+                    }
+                    return (
+                        <div key={col.id} onClick={() => onSelect(col)} className={`flex items-center mb-1 p-1 rounded cursor-pointer ${selectedId === col.id ? 'bg-cyan-700' : 'hover:bg-gray-700'}`}>
+                            <span className={`inline-block mr-2 w-4 h-4 rounded-full ${COLONIST_LOG_COLORS[idx % COLONIST_LOG_COLORS.length]}`}/>
+                            <span className="w-24 text-xs font-semibold">{col.name}</span>
+                            <div className="flex-1 flex items-center bg-gray-900 rounded-sm overflow-hidden">
+                                {[...Array(timelineLength).keys()].map(i => {
+                                    const tick = startTick + i;
+                                    const entry = logForColonist[tick % logForColonist.length];
+
+                                    let color = "#111827"; let task = "No Data";
+                                    if (entry) {
+                                        task = entry.task;
+                                        if (task.includes("MINE")) color = activityKey[0].color;
+                                        else if (task.includes("BUILD")) color = activityKey[1].color;
+                                        else if (task.includes("CHOP")) color = activityKey[2].color;
+                                        else if (task.includes("HAUL") || task.includes("STORAGE")) color = activityKey[3].color;
+                                        else if (task.includes("REST")) color = activityKey[4].color;
+                                        else if (task === "IDLE") color = activityKey[5].color;
+                                        else if (task.startsWith("MOVING")) color = activityKey[6].color;
+                                    }
+                                    return <span key={i} className="inline-block h-4 w-full flex-1" style={{ background: color }} title={`${task} at tick ${tick}`} />;
+                                })}
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+             <div className="text-xs pt-2 text-center text-gray-400 flex flex-wrap justify-center gap-x-3 gap-y-1">
+               {activityKey.map(k => <span key={k.label}><span className="w-2 h-2 inline-block rounded-full mr-1" style={{backgroundColor: k.color}}></span>{k.label}</span>)}
+            </div>
+        </div>
+    );
+};
+</file>
+<file path="components/ColonyAlertsPanel.tsx">
+import React from 'react';
+
+interface ColonyAlertsPanelProps {
+    lowFood: boolean;
+    starvationImminent: boolean;
+}
+
+export const ColonyAlertsPanel: React.FC<ColonyAlertsPanelProps> = ({ lowFood, starvationImminent }) => {
+    const alerts = [];
+    if (starvationImminent) {
+        alerts.push({ id: 'starvation', message: 'STARVATION IMMINENT', level: 'critical' });
+    } else if (lowFood) {
+        alerts.push({ id: 'lowfood', message: 'LOW FOOD SUPPLY', level: 'warning' });
+    }
+
+    if (alerts.length === 0) return null;
+
+    return (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 w-max">
+            {alerts.map(alert => {
+                const colors = alert.level === 'critical' 
+                    ? 'bg-red-900/80 border-red-600 text-red-300' 
+                    : 'bg-yellow-900/80 border-yellow-600 text-yellow-300';
+                return (
+                    <div key={alert.id} className={`px-4 py-2 rounded-md border text-center font-bold animate-pulse ${colors}`}>
+                        ⚠️ {alert.message}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+</file>
+<file path="components/ColonyChronologyPanel.tsx">
+
+import React, { useRef, useEffect } from 'react';
+import { ChronologyEntry } from '../types';
+
+interface ColonyChronologyPanelProps {
+    chronology: ChronologyEntry[];
+    colonyName: string;
+    asteroidName: string;
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+}
+
+const ExpandIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+);
+
+const CollapseIcon = () => (
+     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+    </svg>
+);
+
+export const ColonyChronologyPanel: React.FC<ColonyChronologyPanelProps> = ({ chronology, colonyName, asteroidName, isExpanded, onToggleExpand }) => {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [chronology]);
+
+    return (
+        <div className={`w-full bg-gray-800 border-2 border-gray-600 rounded-md flex flex-col transition-all duration-300 ${isExpanded ? 'flex-grow min-h-40' : 'h-36 flex-shrink-0'}`}>
+            <div className="flex items-center p-2 border-b border-gray-700">
+                <div className="flex-grow">
+                     <h3 className="font-bold text-yellow-400 text-center">The Chronicle of {colonyName}</h3>
+                     <p className="text-xs text-gray-400 text-center">Location: {asteroidName}</p>
+                </div>
+                <button onClick={onToggleExpand} className="p-1 text-gray-400 hover:text-white" aria-label={isExpanded ? 'Collapse panel' : 'Expand panel'}>
+                     {isExpanded ? <CollapseIcon /> : <ExpandIcon />}
+                </button>
+            </div>
+            <div ref={scrollRef} className="text-xs text-gray-300 overflow-y-auto flex-grow p-2">
+                {chronology.map((item, i) => 
+                    <p key={i} className="whitespace-pre-wrap mb-2">
+                        <span className="text-yellow-500">{item.timestamp}</span>: {item.message}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+};
+</file>
+<file path="components/CombinedInspectorPanel.tsx">
+import React from 'react';
+import { Colonist, Tile, TileType, ColonistRole } from '../types';
+import { MAX_ENERGY, MAX_HAPPINESS, MAX_HUNGER, MAX_BOREDOM, CROP_GROWTH_DURATION, SAPLING_TO_TREE_TICKS } from '../constants';
+
+interface CombinedInspectorPanelProps {
+    colonist: Colonist | null;
+    tile: Tile | null;
+    onUpdateColonistRoles: (colonistId: string, roles: ColonistRole[]) => void;
+}
+
+const StatBar = ({ label, value, max, colorClass }: { label: string, value: number, max: number, colorClass: string }) => {
+    const percentage = max > 0 ? (value / max) * 100 : 0;
+    return (
+        <div>
+            <p className="text-sm flex justify-between">
+                <span>{label}</span>
+                <span className="font-semibold text-gray-300">{value.toFixed(0)} / {max}</span>
+            </p>
+            <div className="w-full bg-slate-700 rounded-full h-2 mt-1">
+                <div className={`${colorClass} h-2 rounded-full`} style={{ width: `${percentage}%` }}></div>
+            </div>
+        </div>
+    );
+};
+
+const RoleCheckbox = ({ role, isChecked, onChange }: { role: string, isChecked: boolean, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) => (
+    <label className="flex items-center space-x-2 text-xs cursor-pointer">
+        <input type="checkbox" checked={isChecked} onChange={onChange} className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600 text-cyan-600 focus:ring-cyan-500" />
+        <span>{role}</span>
+    </label>
+);
+
+export const CombinedInspectorPanel: React.FC<CombinedInspectorPanelProps> = ({ colonist, tile, onUpdateColonistRoles }) => {
+    if (colonist) {
+        const handleRoleChange = (role: ColonistRole) => {
+            const newRoles = colonist.roles.includes(role)
+                ? colonist.roles.filter(r => r !== role)
+                : [...colonist.roles, role];
+            onUpdateColonistRoles(colonist.id, newRoles);
+        };
+
+        return (
+            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-3 space-y-2 relative flex-shrink-0">
+                <div className="absolute top-2 right-3 text-xs text-gray-400 text-right">
+                    <p title="Automatic task resets due to being stuck">Stuck Resets: <span className="font-semibold text-orange-400">{colonist.softResetCount || 0}</span></p>
+                    <p title="Emergency teleports due to being severely stuck">Teleports: <span className="font-semibold text-red-500">{colonist.hardResetCount || 0}</span></p>
+                </div>
+                <p className="text-lg font-bold text-cyan-400">{colonist.name}</p>
+                <p className="text-sm">Task: <span className="font-semibold text-yellow-300">{colonist.task}</span></p>
+
+                <div className="space-y-1 pt-1">
+                    <StatBar label="Energy" value={colonist.energy} max={MAX_ENERGY} colorClass="bg-green-500" />
+                    <StatBar label="Happiness" value={colonist.happiness} max={MAX_HAPPINESS} colorClass="bg-lime-500" />
+                    <StatBar label="Hunger" value={colonist.hunger} max={MAX_HUNGER} colorClass="bg-orange-500" />
+                    <StatBar label="Boredom" value={colonist.boredom} max={MAX_BOREDOM} colorClass="bg-pink-500" />
+                </div>
+
+                <div className="border-t border-gray-700 pt-2">
+                    <p className="text-sm font-semibold text-gray-400 mb-1">Roles:</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <RoleCheckbox role="Cook" isChecked={colonist.roles.includes('COOK')} onChange={() => handleRoleChange('COOK')} />
+                        <RoleCheckbox role="Builder" isChecked={colonist.roles.includes('BUILDER')} onChange={() => handleRoleChange('BUILDER')} />
+                        <RoleCheckbox role="Miner" isChecked={colonist.roles.includes('MINER')} onChange={() => handleRoleChange('MINER')} />
+                        <RoleCheckbox role="Hauler" isChecked={colonist.roles.includes('HAULER')} onChange={() => handleRoleChange('HAULER')} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    
+    if (tile) {
+        return (
+            <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 space-y-2 min-h-[268px] flex-shrink-0">
+                <p className="text-lg font-bold text-cyan-400">Tile Info</p>
+                <p>Type: <span className="font-semibold text-yellow-300">{tile.type}</span></p>
+                <p>Coords: <span className="text-gray-400">({tile.x}, {tile.y})</span></p>
+                {tile.growth !== undefined && tile.type === TileType.HYDROPONICS_TRAY && (
+                    <StatBar label="Growth" value={tile.growth} max={CROP_GROWTH_DURATION} colorClass="bg-green-600" />
+                )}
+                {tile.type === TileType.SAPLING && (
+                    <StatBar label="Maturing" value={tile.regrowthTicks} max={SAPLING_TO_TREE_TICKS} colorClass="bg-lime-700" />
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full border-2 border-gray-700 bg-gray-800 rounded-md p-4 min-h-[268px] flex items-center justify-center text-gray-500 flex-shrink-0">
+            <p>Select a colonist or hover over a tile to inspect</p>
+        </div>
+    );
+};
+
+</file>
+<file path="components/DirectorModal.tsx">
+import React from 'react';
+import { SimulationSettings } from '../types';
+
+interface DirectorModalProps {
+    settings: SimulationSettings;
+    onUpdateSettings: (newSettings: SimulationSettings) => void;
+    onClose: () => void;
+}
+
+const Toggle = ({ label, isEnabled, onToggle, description }: { label: string, isEnabled: boolean, onToggle: () => void, description: string }) => (
+    <div className="flex items-start justify-between bg-gray-700 p-3 rounded-md">
+        <div>
+            <label className="font-semibold text-gray-200">{label}</label>
+            <p className="text-xs text-gray-400 mt-1">{description}</p>
+        </div>
+        <button
+            onClick={onToggle}
+            className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-cyan-500 ${isEnabled ? 'bg-cyan-600' : 'bg-gray-600'}`}
+            aria-checked={isEnabled}
+        >
+            <span
+                className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+        </button>
+    </div>
+);
+
+export const DirectorModal: React.FC<DirectorModalProps> = ({ settings, onUpdateSettings, onClose }) => {
+    
+    const handleToggleNewColonists = () => {
+        onUpdateSettings({ ...settings, allowNewColonists: !settings.allowNewColonists });
+    };
+
+    return (
+        <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-30" onClick={onClose}>
+            <div className="bg-gray-800 border-2 border-purple-500 rounded-lg p-6 max-w-lg w-full text-center shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold text-purple-400">AI Director Controls</h2>
+                <p className="text-gray-400 text-sm">Fine-tune the AI's behavior to customize your simulation experience. Changes will apply to future events.</p>
+                <div className="text-left space-y-3 pt-2">
+                    <Toggle
+                        label="Allow New Colonists"
+                        isEnabled={settings.allowNewColonists}
+                        onToggle={handleToggleNewColonists}
+                        description="Enable or disable the 'New Colonist' random event. Disabling this can help manage late-game population."
+                    />
+                </div>
+                <button onClick={onClose} className="mt-4 px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-md text-lg font-semibold">Close</button>
+            </div>
+        </div>
+    );
+};
+
+</file>
+<file path="components/EventModal.tsx">
+
+import React from 'react';
+import { GameEvent } from '../types';
+
+interface EventModalProps {
+    event: GameEvent;
+    onContinue: () => void;
+}
+
+export const EventModal: React.FC<EventModalProps> = ({ event, onContinue }) => (
+    <div className="absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-20">
+        <div className="bg-gray-800 border-2 border-purple-500 rounded-lg p-8 max-w-sm text-center shadow-lg">
+            <h2 className="text-2xl font-bold text-purple-400 mb-4">Event Occurred!</h2>
+            <p className="text-white mb-6">{event.message}</p>
+            <button onClick={onContinue} className="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-md text-lg font-semibold">Continue</button>
+        </div>
+    </div>
+);
+
+</file>
+<file path="components/EventsPanel.tsx">
+
+import React from 'react';
+import { GameEvent } from '../types';
+
+interface EventsPanelProps {
+    events: GameEvent[];
+}
+
+export const EventsPanel: React.FC<EventsPanelProps> = ({ events }) => {
+    if (events.length === 0) return null;
+    return (
+        <div className="border-2 border-purple-500 bg-gray-800 p-3 rounded-md w-full flex flex-col gap-1">
+            <h3 className="text-lg font-bold text-center text-purple-400 mb-1">Active Events</h3>
+            {events.map(event => (
+                <div key={event.id} className="text-center text-sm text-purple-300">{event.message.split('!')[0]}</div>
+            ))}
+        </div>
+    );
+};
+
+</file>
+<file path="components/GameLogPanel.tsx">
+import React, { useRef, useEffect } from 'react';
+import { GameLogItem } from '../types';
+
+interface GameLogPanelProps {
+    log: GameLogItem[];
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+}
+
+const ExpandIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+);
+
+const CollapseIcon = () => (
+     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+    </svg>
+);
+
+
+export const GameLogPanel: React.FC<GameLogPanelProps> = ({ log, isExpanded, onToggleExpand }) => {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [log]);
+    
+    return (
+        <div className={`w-full bg-gray-800 border-2 border-gray-600 rounded-md flex flex-col transition-all duration-300 ${isExpanded ? 'flex-grow min-h-40' : 'h-36 flex-shrink-0'}`}>
+            <div className="flex items-center p-2 border-b border-gray-700">
+                 <h3 className="font-bold text-gray-400 text-center flex-grow">Game Log</h3>
+                 <button onClick={onToggleExpand} className="p-1 text-gray-400 hover:text-white" aria-label={isExpanded ? 'Collapse panel' : 'Expand panel'}>
+                     {isExpanded ? <CollapseIcon /> : <ExpandIcon />}
+                </button>
+            </div>
+            <div ref={scrollRef} className="p-2 text-xs text-gray-300 overflow-y-auto flex-grow">
+                {log.slice().reverse().map((item, i) => <p key={i} className={`whitespace-pre-wrap ${item.type === 'event' ? 'text-purple-400 font-bold' : ''}`}>{item.msg}</p>)}
+            </div>
+        </div>
+    );
+};
+</file>
+<file path="components/IntroModal.tsx">
+
+import React from 'react';
+import { Colonist } from '../types';
+
+interface IntroModalProps {
+    onStart: () => void;
+    isGenerating: boolean;
+    colonyName: string;
+    asteroidName: string;
+    colonists: Colonist[];
+}
+
+export const IntroModal: React.FC<IntroModalProps> = ({ onStart, isGenerating, colonyName, asteroidName, colonists }) => {
+    if (isGenerating) {
+        return (
+             <div className="absolute inset-0 bg-black bg-opacity-85 flex flex-col items-center justify-center z-30 text-center">
+                <h1 className="text-4xl font-bold text-cyan-400 mb-4 animate-pulse">[ The Cosmos Stirs... ]</h1>
+                <p className="text-gray-300">A new world is being born from the void.</p>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="absolute inset-0 bg-black bg-opacity-85 flex flex-col items-center justify-center z-30 p-4">
+            <div className="bg-slate-900 border-2 border-cyan-500 rounded-lg p-8 max-w-4xl w-full text-center shadow-2xl space-y-6">
+                <div>
+                    <h1 className="text-4xl font-bold text-cyan-400 mb-1">Welcome to {colonyName}</h1>
+                    <p className="text-gray-400">Your destination: Asteroid {asteroidName}</p>
+                </div>
+                
+                <div className="text-left space-y-4 text-gray-300">
+                     <p><strong className="text-yellow-400">Your Crew:</strong> These souls are all that remain. Their pasts are behind them; their future is in your hands.</p>
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {colonists.map(c => (
+                            <div key={c.id} className="bg-slate-800 border border-slate-700 p-4 rounded-md">
+                                <p className="font-bold text-cyan-300 text-lg">{c.name}</p>
+                                <p className="text-sm text-gray-300 mt-2">"{c.backstory}"</p>
+                            </div>
+                        ))}
+                     </div>
+                     <p><strong className="text-yellow-400">The Goal:</strong> Guide them to sustainability. Designate tasks, manage their needs, and see how long they can last against the harshness of space.</p>
+                </div>
+                <button onClick={onStart} className="px-10 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-md text-xl font-semibold transition-colors">Begin Simulation</button>
+            </div>
+        </div>
+    );
+};
+</file>
+<file path="components/LeftSidebar.tsx">
+import React, { useState } from 'react';
+import { DesignationType } from '../types';
+import { WALL_COST, DOOR_COST, BED_COST, STORAGE_COST, HYDROPONICS_COST, ARCADE_COST, STONE_FLOOR_COST, STONE_WALL_COST, FLOOR_COST } from '../constants';
+
+// Icons
+const InspectIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
+const BuildIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon><line x1="12" y1="22" x2="12" y2="12"></line><polyline points="22 8.5 12 12 2 8.5"></polyline><polyline points="17 14 12 12 7 14"></polyline></svg>;
+const OrdersIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="14 2 18 6 7 17 3 17 3 13 14 2"></polygon><line x1="3" y1="22" x2="21" y2="22"></line></svg>;
+const WorldIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>;
+const PrioritiesIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.4l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.4l.15.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+
+
+type Category = 'Inspect' | 'Construction' | 'Orders' | 'World' | null;
+
+interface LeftSidebarProps {
+    onSetDesignation: (type: DesignationType) => void;
+    onSetInspect: () => void;
+    onRegenerate: () => void;
+    seed: string;
+    onSeedChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onUnstuck: () => void;
+    onToggleSettings: () => void;
+    onTogglePriorities: () => void;
+    onToggleDirector: () => void;
+    activeDesignation: DesignationType | null;
+}
+
+const CategoryButton = ({ label, icon, onClick, isActive }: { label: string, icon: React.ReactNode, onClick: () => void, isActive: boolean }) => (
+    <button onClick={onClick} className={`flex flex-col items-center justify-center w-full p-2 rounded-lg ${isActive ? 'bg-cyan-600' : 'bg-gray-700 hover:bg-gray-600'}`} title={label}>
+        {icon}
+        <span className="text-xs mt-1">{label}</span>
+    </button>
+);
+
+const SubMenuButton = ({ label, onClick, isActive, cost }: { label: string, onClick: () => void, isActive: boolean, cost?: string }) => (
+    <button onClick={onClick} className={`w-full text-left px-3 py-1.5 rounded text-sm ${isActive ? 'bg-cyan-700' : 'bg-gray-700 hover:bg-gray-600'}`}>
+        <div className="font-semibold text-gray-100">{label}</div>
+        {cost && <div className="text-xs text-gray-400">{cost}</div>}
+    </button>
+);
+
+const SubMenuSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
+    <div>
+        <h4 className="font-bold text-yellow-400 text-sm px-1 mb-1 uppercase">{title}</h4>
+        <div className="flex flex-col gap-1">{children}</div>
+    </div>
+);
+
+
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({
+    onSetDesignation, onSetInspect, onRegenerate, seed, onSeedChange, onUnstuck, onToggleSettings, onTogglePriorities, onToggleDirector, activeDesignation
+}) => {
+    const [activeCategory, setActiveCategory] = useState<Category>('Inspect');
+
+    const handleCategoryClick = (category: Category) => {
+        if (category === 'Inspect') {
+            onSetInspect();
+        }
+        setActiveCategory(category);
+    };
+
+    const renderSubMenu = () => {
+        switch (activeCategory) {
+            case 'Construction':
+                return (
+                    <div className="flex flex-col gap-4">
+                        <SubMenuSection title="Floors">
+                            <SubMenuButton label="Wood Floor" onClick={() => onSetDesignation(DesignationType.BUILD_WOOD_FLOOR)} isActive={activeDesignation === DesignationType.BUILD_WOOD_FLOOR} cost={`${FLOOR_COST}L`} />
+                            <SubMenuButton label="Stone Floor" onClick={() => onSetDesignation(DesignationType.BUILD_STONE_FLOOR)} isActive={activeDesignation === DesignationType.BUILD_STONE_FLOOR} cost={`${STONE_FLOOR_COST}S`} />
+                            <SubMenuButton label="Upgrade Floor" onClick={() => onSetDesignation(DesignationType.UPGRADE_TO_STONE_FLOOR)} isActive={activeDesignation === DesignationType.UPGRADE_TO_STONE_FLOOR} cost={`${STONE_FLOOR_COST}S`} />
+                        </SubMenuSection>
+                        <SubMenuSection title="Walls">
+                            <SubMenuButton label="Wood Wall" onClick={() => onSetDesignation(DesignationType.BUILD_WOOD_WALL)} isActive={activeDesignation === DesignationType.BUILD_WOOD_WALL} cost={`${WALL_COST}L`} />
+                            <SubMenuButton label="Stone Wall" onClick={() => onSetDesignation(DesignationType.BUILD_STONE_WALL)} isActive={activeDesignation === DesignationType.BUILD_STONE_WALL} cost={`${STONE_WALL_COST}S`} />
+                             <SubMenuButton label="Upgrade Wall" onClick={() => onSetDesignation(DesignationType.UPGRADE_TO_STONE_WALL)} isActive={activeDesignation === DesignationType.UPGRADE_TO_STONE_WALL} cost={`${STONE_WALL_COST}S`} />
+                            <SubMenuButton label="Door" onClick={() => onSetDesignation(DesignationType.BUILD_DOOR)} isActive={activeDesignation === DesignationType.BUILD_DOOR} cost={`${DOOR_COST}L`} />
+                        </SubMenuSection>
+                         <SubMenuSection title="Furniture">
+                            <SubMenuButton label="Bed" onClick={() => onSetDesignation(DesignationType.BUILD_BED)} isActive={activeDesignation === DesignationType.BUILD_BED} cost={`${BED_COST}L`} />
+                            <SubMenuButton label="Storage" onClick={() => onSetDesignation(DesignationType.BUILD_STORAGE)} isActive={activeDesignation === DesignationType.BUILD_STORAGE} cost={`${STORAGE_COST}L`} />
+                        </SubMenuSection>
+                        <SubMenuSection title="Facilities">
+                             <SubMenuButton label="Hydroponics" onClick={() => onSetDesignation(DesignationType.BUILD_HYDROPONICS)} isActive={activeDesignation === DesignationType.BUILD_HYDROPONICS} cost={`${HYDROPONICS_COST.logs}L, ${HYDROPONICS_COST.stone}S, ${HYDROPONICS_COST.minerals}M`} />
+                             <SubMenuButton label="Arcade" onClick={() => onSetDesignation(DesignationType.BUILD_ARCADE)} isActive={activeDesignation === DesignationType.BUILD_ARCADE} cost={`${ARCADE_COST.logs}L, ${ARCADE_COST.stone}S, ${ARCADE_COST.minerals}M, ${ARCADE_COST.gems}G`} />
+                        </SubMenuSection>
+                    </div>
+                );
+            case 'Orders':
+                return (
+                     <SubMenuSection title="Mass Orders">
+                        <SubMenuButton label="Harvest" onClick={() => onSetDesignation(DesignationType.HARVEST)} isActive={activeDesignation === DesignationType.HARVEST} />
+                    </SubMenuSection>
+                );
+            case 'World':
+                 return (
+                     <div className="flex flex-col gap-4">
+                        <SubMenuSection title="Simulation Control">
+                            <SubMenuButton label="Priorities" onClick={onTogglePriorities} isActive={false} />
+                            <SubMenuButton label="AI Director" onClick={onToggleDirector} isActive={false} />
+                        </SubMenuSection>
+                    </div>
+                );
+            default:
+                return <div className="text-center text-gray-500 p-4">Select a category</div>;
+        }
+    };
+
+    return (
+        <aside className="flex-shrink-0 flex flex-row bg-gray-900 border-y-2 border-l-2 border-gray-700">
+            <div className="w-24 bg-gray-800/50 p-2 border-r-2 border-gray-700 flex flex-col gap-2">
+                <CategoryButton label="Inspect" icon={<InspectIcon/>} onClick={() => handleCategoryClick('Inspect')} isActive={activeCategory === 'Inspect'} />
+                <CategoryButton label="Build" icon={<BuildIcon/>} onClick={() => handleCategoryClick('Construction')} isActive={activeCategory === 'Construction'} />
+                <CategoryButton label="Orders" icon={<OrdersIcon/>} onClick={() => handleCategoryClick('Orders')} isActive={activeCategory === 'Orders'} />
+                <CategoryButton label="World" icon={<WorldIcon/>} onClick={() => handleCategoryClick('World')} isActive={activeCategory === 'World'} />
+
+                <div className="flex-grow"></div>
+                 <div className="flex flex-col gap-2">
+                    <button onClick={onUnstuck} className="px-3 py-1 rounded bg-orange-700 hover:bg-orange-600 text-sm">Unstuck</button>
+                    <div className="flex items-center gap-1">
+                        <input type="text" value={seed} onChange={onSeedChange} className="bg-gray-900 border border-gray-600 rounded px-2 py-1 w-full text-xs" placeholder="seed..."/>
+                    </div>
+                    <button onClick={onRegenerate} className="px-3 py-1 rounded bg-gray-600 hover:bg-gray-500 text-sm">Regen</button>
+                    <button onClick={onToggleSettings} className="p-1.5 rounded bg-gray-600 hover:bg-gray-500 flex justify-center">
+                        <SettingsIcon />
+                    </button>
+                </div>
+            </div>
+            <div className="w-64 bg-gray-800/20 p-3 overflow-y-auto">
+                {renderSubMenu()}
+            </div>
+        </aside>
+    );
+};
+</file>
+<file path="components/Legend.tsx">
+
+import React from 'react';
+import { PALETTE } from '../constants';
+
+export const Legend: React.FC = () => (
+    <div className="text-gray-500 flex flex-wrap justify-end items-center gap-x-3 gap-y-1 text-xs px-2">
+        <span><span style={{color: PALETTE.ROCK}}>#</span>=Rock</span>
+        <span><span style={{color: PALETTE.MINERAL}}>*</span>=Mineral</span>
+        <span><span style={{color: PALETTE.GEM}}>♦</span>=Gem</span>
+        <span><span style={{color: PALETTE.TREE}}>T</span>=Tree</span>
+        <span><span style={{color: PALETTE.SAPLING}}>,</span>=Sapling</span>
+        <span className="border-l border-gray-700 h-3 mx-1"></span>
+        <span><span className="text-blue-500 font-bold">S</span>=Storage</span>
+        <span><span className="text-red-500 font-bold">b</span>=Bed</span>
+        <span><span style={{color: PALETTE.HYDROPONICS}}>h</span>=Hydroponics</span>
+        <span><span style={{color: PALETTE.ARCADE}}>A</span>=Arcade</span>
+        <span><span style={{color: PALETTE.WOOD_FLOOR}}>·</span>=W.Floor</span>
+        <span><span style={{color: PALETTE.STONE_FLOOR}}>·</span>=S.Floor</span>
+        <span><span style={{color: PALETTE.WOOD_WALL}}>■</span>=W.Wall</span>
+        <span><span style={{color: PALETTE.STONE_WALL}}>▓</span>=S.Wall</span>
+        <span><span style={{color: PALETTE.DOOR}}>+</span>=Door</span>
+        <span className="border-l border-gray-700 h-3 mx-1"></span>
+        <span><span style={{color: PALETTE.DROPPED_STONE}}>~</span>=Stone</span>
+        <span><span className="text-white">@</span>=Idle/Move</span>
+        <span><span className="text-white">X</span>=Work</span>
+        <span><span className="text-white">o</span>=Haul</span>
+        <span><span className="text-white">z</span>=Rest</span>
+        <span><span className="text-white">E</span>=Eat</span>
+        <span><span className="text-white">P</span>=Play</span>
+    </div>
+);
+</file>
+<file path="components/PriorityTasksModal.tsx">
+import React, { useState, useRef } from 'react';
+import { PriorityTask } from '../types';
+
+interface PriorityTasksModalProps {
+    tasks: PriorityTask[];
+    onReorder: (tasks: PriorityTask[]) => void;
+    onClose: () => void;
+}
+
+export const PriorityTasksModal: React.FC<PriorityTasksModalProps> = ({ tasks, onReorder, onClose }) => {
+    const [localTasks, setLocalTasks] = useState(tasks);
+    const dragItem = useRef<number | null>(null);
+    const dragOverItem = useRef<number | null>(null);
+
+    const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+        dragItem.current = index;
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragEnter = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+        if (dragItem.current === null || dragItem.current === index) return;
+        dragOverItem.current = index;
+        const newTasks = [...localTasks];
+        const draggedItemContent = newTasks.splice(dragItem.current!, 1)[0];
+        newTasks.splice(dragOverItem.current!, 0, draggedItemContent);
+        dragItem.current = dragOverItem.current;
+        dragOverItem.current = null;
+        setLocalTasks(newTasks);
+    };
+
+    const handleDragEnd = () => {
+        onReorder(localTasks);
+        dragItem.current = null;
+        dragOverItem.current = null;
+    };
+    
+    const handleDoubleClick = (clickedIndex: number) => {
+        if (clickedIndex === 0) return; // Already at the top
+        const newTasks = [...localTasks];
+        const [clickedTask] = newTasks.splice(clickedIndex, 1);
+        newTasks.unshift(clickedTask);
+        setLocalTasks(newTasks);
+        onReorder(newTasks);
+    };
+
+    const formatTaskName = (task: PriorityTask) => {
+        const typeName = task.type.replace(/_/g, ' ').toLowerCase();
+        return `[${typeName}] at (${task.x}, ${task.y})`;
+    }
+
+    return (
+        <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-30" onClick={onClose}>
+            <div className="bg-gray-800 border-2 border-yellow-500 rounded-lg p-6 max-w-lg w-full text-center shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold text-yellow-400">Colony Task Priorities</h2>
+                <p className="text-gray-400 text-sm">Drag and drop tasks to change their priority. Top of the list is highest priority. Double-click to move to top.</p>
+                <div className="bg-gray-900 rounded-md p-2 h-96 overflow-y-auto">
+                    {localTasks.length > 0 ? (
+                        <ul className="space-y-2">
+                            {localTasks.map((task, index) => (
+                                <li
+                                    key={task.id}
+                                    className="p-3 bg-gray-700 rounded-md cursor-grab text-left text-sm"
+                                    draggable
+                                    onDoubleClick={() => handleDoubleClick(index)}
+                                    onDragStart={(e) => handleDragStart(e, index)}
+                                    onDragEnter={(e) => handleDragEnter(e, index)}
+                                    onDragEnd={handleDragEnd}
+                                    onDragOver={(e) => e.preventDefault()}
+                                >
+                                    <span className="font-bold text-cyan-400">{index + 1}. </span>
+                                    {formatTaskName(task)}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-gray-500">
+                            No active designations.
+                        </div>
+                    )}
+                </div>
+                <button onClick={onClose} className="mt-4 px-6 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-md text-lg font-semibold">Close</button>
+            </div>
+        </div>
+    );
+};
+
+</file>
+<file path="components/RightInfoPanel.tsx">
+
+</file>
+<file path="components/SettingsModal.tsx">
+import React from 'react';
+
+interface SettingsModalProps {
+    onExport: () => void;
+    onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    importError: string;
+    setImportError: (error: string) => void;
+}
+
+export const SettingsModal: React.FC<SettingsModalProps> = ({ onExport, onImport, importError, setImportError }) => (
+    <div className="absolute bottom-14 right-0 bg-gray-800 border-2 border-gray-600 p-4 rounded-lg shadow-xl flex flex-col gap-2 w-48 z-20">
+         <label className="px-4 py-2 rounded bg-green-700 hover:bg-green-800 cursor-pointer text-center">
+            Import Save
+            <input type="file" accept=".json" onChange={(e) => { setImportError(''); onImport(e); }} className="hidden"/>
+        </label>
+        <button onClick={onExport} className="px-4 py-2 rounded bg-yellow-700 hover:bg-yellow-800">Export Save</button>
+        {importError && <div className={`mt-1 text-xs ${importError.startsWith("Import failed") ? "text-red-400" : "text-green-400"}`}>{importError}</div>}
+    </div>
+);
+</file>
+<file path="components/StatsPanel.tsx">
+import React from 'react';
+import { LOW_MORALE_THRESHOLD } from '../constants';
+
+interface StatsPanelProps {
+    storedMinerals: number;
+    storedGems: number;
+    storedLogs: number;
+    storedFood: number;
+    storedStone: number;
+    averageHappiness: number;
+    workEfficiency: number;
+    currentDay: number;
+    currentHour: number;
+    isDay: boolean;
+    milestoneLevel: number;
+    currentGoal: number;
+    totalSoftResets: number;
+    totalHardResets: number;
+}
+
+export const StatsPanel: React.FC<StatsPanelProps> = ({ 
+    storedMinerals, storedGems, storedLogs, storedFood, storedStone, 
+    averageHappiness, workEfficiency, currentDay, currentHour, isDay, 
+    milestoneLevel, currentGoal, totalSoftResets, totalHardResets 
+}) => (
+    <div className="border-b-2 border-gray-700 bg-gray-800 px-4 py-1 w-full flex items-center justify-between text-sm flex-shrink-0">
+        <div className="flex items-center gap-x-4">
+            <span>Milestone: <span className="font-bold text-green-400">{milestoneLevel}</span></span>
+            <span className="text-gray-500">|</span>
+            <span>Minerals: <span className="font-bold text-yellow-400">{storedMinerals} / {currentGoal}</span></span>
+            <span>Gems: <span className="font-bold text-purple-400">{storedGems}</span></span>
+            <span>Logs: <span className="font-bold text-yellow-600">{storedLogs}</span></span>
+            <span>Stone: <span className="font-bold text-gray-400">{storedStone}</span></span>
+            <span>Food: <span className="font-bold text-red-400">{storedFood}</span></span>
+        </div>
+        <div className="flex items-center gap-x-4">
+            <span>Avg. Happiness: <span className={`font-bold ${averageHappiness < LOW_MORALE_THRESHOLD ? 'text-red-500' : 'text-green-400'}`}>{averageHappiness.toFixed(0)}%</span></span>
+            <span>Work Efficiency: <span className="font-bold text-cyan-400">{workEfficiency.toFixed(1)}%</span></span>
+             <span className="text-gray-500">|</span>
+            <span title="Automatic task resets due to being stuck">Stuck Resets: <span className="font-bold text-orange-400">{totalSoftResets}</span></span>
+            <span title="Emergency teleports due to being severely stuck">Teleports: <span className="font-bold text-red-500">{totalHardResets}</span></span>
+        </div>
+        <div className="flex items-center gap-x-2 font-bold">
+            <span>Day {currentDay}</span>
+            <span>—</span>
+            <span>{String(currentHour).padStart(2, '0')}:00</span>
+            <span className="text-xl">{isDay ? <span title="Day" className="text-yellow-300">☀️</span> : <span title="Night" className="text-blue-300">🌙</span>}</span>
+        </div>
+    </div>
+);
+</file>
+<file path="components/TopBar.tsx">
+import React from 'react';
+import { Colonist } from '../types';
+import { LOW_MORALE_THRESHOLD } from '../constants';
+
+// SVG Icon Components
+const LogIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 10L16 12C16 13.1046 15.1046 14 14 14L9 14C7.89543 14 7 13.1046 7 12L7 7C7 5.89543 7.89543 5 9 5L14 5C15.1046 5 16 5.89543 16 7" stroke="#966947" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 14V17C12 18.1046 11.1046 19 10 19L7 19" stroke="#966947" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const StoneIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 11L14 16L9 18L7 13L9 9L15 11Z" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M15 11C15 11 17.2727 12.3636 18 13C18.7273 13.6364 20 13 20 12C20 11 18 10 18 10C18 10 16 9 15 11Z" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const MineralIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="#facc15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const GemIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L6 8L12 22L18 8L12 2Z" stroke="#9333ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M6 8H18" stroke="#9333ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M10 8L12 22L14 8" stroke="#9333ea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const FoodIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C12 2 4 4 4 10C4 16 12 22 12 22C12 22 20 16 20 10C20 4 12 2 12 2Z" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 6C13.1046 6 14 5.10457 14 4C14 2.89543 13.1046 2 12 2C10.8954 2 10 2.89543 10 4C10 5.10457 10.8954 6 12 6Z" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+
+interface TopBarProps {
+    storedMinerals: number;
+    storedGems: number;
+    storedLogs: number;
+    storedFood: number;
+    storedStone: number;
+    currentDay: number;
+    currentHour: number;
+    isDay: boolean;
+    colonists: Colonist[];
+    onSelectColonist: (colonist: Colonist) => void;
+    selectedColonistId: string | undefined;
+    gameSpeed: number;
+    onSetGameSpeed: (speed: number) => void;
+    isPlaying: boolean;
+    onTogglePlay: () => void;
+}
+
+const ResourceItem = ({ icon, value }: { icon: React.ReactNode, value: number }) => (
+    <div className="flex items-center gap-1 bg-black/30 px-2 py-0.5 rounded">
+        {icon}
+        <span className="font-bold text-lg">{value}</span>
+    </div>
+);
+
+const SpeedButton = ({ speed, currentSpeed, setSpeed }: { speed: number, currentSpeed: number, setSpeed: (s: number) => void }) => (
+    <button
+        onClick={() => setSpeed(speed)}
+        className={`w-8 h-8 flex items-center justify-center rounded ${currentSpeed === speed ? 'bg-cyan-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+    >
+        {speed}x
+    </button>
+);
+
+
+export const TopBar: React.FC<TopBarProps> = ({
+    storedMinerals, storedGems, storedLogs, storedFood, storedStone,
+    currentDay, currentHour, isDay,
+    colonists, onSelectColonist, selectedColonistId,
+    gameSpeed, onSetGameSpeed, isPlaying, onTogglePlay
+}) => {
+    return (
+        <header className="w-full bg-gray-900 border-b-2 border-gray-700 px-4 py-1 flex items-center justify-between flex-shrink-0">
+            {/* Left: Resources */}
+            <div className="flex items-center gap-3">
+                <ResourceItem icon={<LogIcon />} value={storedLogs} />
+                <ResourceItem icon={<StoneIcon />} value={storedStone} />
+                <ResourceItem icon={<MineralIcon />} value={storedMinerals} />
+                <ResourceItem icon={<GemIcon />} value={storedGems} />
+                <ResourceItem icon={<FoodIcon />} value={storedFood} />
+            </div>
+
+            {/* Center: Colonist Bar */}
+            <div className="flex items-center gap-1">
+                {colonists.map(c => (
+                    <button
+                        key={c.id}
+                        onClick={() => onSelectColonist(c)}
+                        className={`px-3 py-1 rounded border-2 ${selectedColonistId === c.id ? 'bg-cyan-700 border-cyan-400' : 'bg-gray-700/80 border-gray-600 hover:bg-gray-600'}`}
+                        title={c.name}
+                    >
+                        {c.name}
+                    </button>
+                ))}
+            </div>
+
+            {/* Right: Time and Speed */}
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-x-2 font-bold text-xl">
+                    <span>Day {currentDay}</span>
+                    <span>-</span>
+                    <span>{String(currentHour).padStart(2, '0')}:00</span>
+                    <span className="text-2xl" title={isDay ? 'Day' : 'Night'}>{isDay ? '☀️' : '🌙'}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <button onClick={onTogglePlay} className={`w-11 h-8 flex items-center justify-center rounded ${isPlaying ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                        {isPlaying ? '❚❚' : '▶'}
+                    </button>
+                    <SpeedButton speed={1} currentSpeed={gameSpeed} setSpeed={onSetGameSpeed} />
+                    <SpeedButton speed={2} currentSpeed={gameSpeed} setSpeed={onSetGameSpeed} />
+                    <SpeedButton speed={3} currentSpeed={gameSpeed} setSpeed={onSetGameSpeed} />
+                </div>
+            </div>
+        </header>
+    );
+};
+
+</file>
+<file path="utils/fallbackData.ts">
+export const initialStoryFallbacks = [
+    {
+        colonyName: "Terminus Outpost",
+        asteroidName: "Asteroid X-9 'The Drifter'",
+        firstEntry: "Simulation initialized. The subjects have been deployed. Objective: Establish a self-sustaining foothold. Probability of success is nominal. Observation has begun.",
+        colonists: [
+            { name: "Joric Kade", backstory: "A hardened asteroid miner with a knack for finding the richest veins." },
+            { name: "Lena Petrova", backstory: "A bio-technician who signed on for the peace and quiet of deep space." },
+            { name: "Rax", backstory: "A hulking, cybernetically enhanced worker unit of few words." }
+        ]
+    },
+    {
+        colonyName: "Halcyon Base",
+        asteroidName: "Remnant Shard 'Echo-7'",
+        firstEntry: "The cryo-pods are empty. The colonists are active. My directive is to monitor their progress and record all data. The 'Halcyon' protocol is now in effect.",
+        colonists: [
+            { name: "Orin Vance", backstory: "A disgraced architect looking for a final, redemptive project." },
+            { name: "Elara Soto", backstory: "A geologist who believes this rock holds secrets older than humanity." },
+            { name: "Samira 'Sam' Jen", backstory: "A former pilot who is more comfortable with machines than people." }
+        ]
+    },
+    {
+        colonyName: "The Aegis Project",
+        asteroidName: "Object-Prime 'The Sentinel'",
+        firstEntry: "The final contingency has been activated. The 'Aegis' directive is underway. These colonists represent a final hope. Their survival is paramount. The simulation must succeed.",
+        colonists: [
+            { name: "Caspian Thorne", backstory: "An ex-soldier assigned to this mission as a last chance for redemption." },
+            { name: "Dr. Evelyn Reed", backstory: "A botanist who sees life's potential in the most barren of places." },
+            { name: "Nix", backstory: "A nimble scout and technician who can fix anything with some wire and spite." }
+        ]
+    }
+];
+
+export const chronologyPlaceholders = [
+    "The void is silent. The colonists continue their work, unaware of the watchful eye upon them.",
+    "Another cycle passes. Resources are gathered. Structures are built. The simulation progresses as expected.",
+    "Data streams in. The colonists' struggles and small victories are all noted. The patterns are fascinating.",
+    "The daily routines of survival continue. The subjects adapt, or they fail. The outcome is yet to be determined.",
+    "A period of relative quiet. The colony is stable, for now. I will continue to observe."
+];
+
+</file>
+<file path="utils/geometry.ts">
+
+import { Point } from '../types';
+
+export const distance = (a: Point, b: Point): number => {
+    if (!a || !b) return Infinity;
+    return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+};
+
+</file>
+<file path="utils/noise.ts">
+
+export function createPRNG(seedStr: string): () => number {
+    let seed = 0;
+    for (let i = 0; i < seedStr.length; i++) {
+        seed = (seed + seedStr.charCodeAt(i) * (i + 1)) % 2147483647;
+    }
+    return () => {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+    };
+}
+
+const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
+const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
+
+export function createNoise2D(random: () => number = Math.random): (x: number, y: number) => number {
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+        const r = Math.floor(random() * (i + 1));
+        const v = p[i];
+        p[i] = p[r];
+        p[r] = v;
+    }
+    const perm = new Uint8Array([...p, ...p]);
+    const grad3 = new Float32Array([1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1, 0, 1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0, -1, 0, 1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1]);
+    const permMod12 = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) permMod12[i] = perm[i] % 12;
+
+    return (x, y) => {
+        let n0 = 0, n1 = 0, n2 = 0;
+        const s = (x + y) * F2;
+        const i = Math.floor(x + s), j = Math.floor(y + s);
+        const t = (i + j) * G2;
+        const X0 = i - t, Y0 = j - t;
+        const x0 = x - X0, y0 = y - Y0;
+        let i1: number, j1: number;
+        if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
+        const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2;
+        const x2 = x0 - 1.0 + 2.0 * G2, y2 = y0 - 1.0 + 2.0 * G2;
+        const ii = i & 255, jj = j & 255;
+        let t0 = 0.5 - x0 * x0 - y0 * y0;
+        if (t0 >= 0) { t0 *= t0; const gi0 = permMod12[ii + perm[jj]] * 3; n0 = t0 * t0 * (grad3[gi0] * x0 + grad3[gi0 + 1] * y0); }
+        let t1 = 0.5 - x1 * x1 - y1 * y1;
+        if (t1 >= 0) { t1 *= t1; const gi1 = permMod12[ii + i1 + perm[jj + j1]] * 3; n1 = t1 * t1 * (grad3[gi1] * x1 + grad3[gi1 + 1] * y1); }
+        let t2 = 0.5 - x2 * x2 - y2 * y2;
+        if (t2 >= 0) { t2 *= t2; const gi2 = permMod12[ii + 1 + perm[jj + 1]] * 3; n2 = t2 * t2 * (grad3[gi2] * x2 + grad3[gi2 + 1] * y2); }
+        return 70.0 * (n0 + n1 + n2);
+    };
+}
+
+</file>
+<file path="utils/pathfinding.ts">
+import { Grid, Point, TileType } from '../types';
+import { GRID_WIDTH, GRID_HEIGHT } from '../constants';
+
+export const findPath = (
+    start: Point, 
+    end: Point, 
+    currentGrid: Grid,
+    pawnLocations?: Set<string>,
+): Point[] | null => {
+    if (!currentGrid || !start || !end) return null;
+    const queue: Point[][] = [[start]];
+    const visited = new Set([`${start.x},${start.y}`]);
+    
+    const isWalkable = (x: number, y: number) => {
+        if (y < 0 || y >= GRID_HEIGHT || x < 0 || x >= GRID_WIDTH) return false;
+
+        // A tile is not walkable if another pawn is on it, unless it's the starting tile of the path.
+        if (pawnLocations && pawnLocations.has(`${x},${y}`) && (x !== start.x || y !== start.y)) {
+            return false;
+        }
+
+        const tileType = currentGrid[y]?.[x]?.type;
+
+        return tileType === TileType.EMPTY || 
+               tileType === TileType.STORAGE || 
+               tileType === TileType.DROPPED_MINERAL || 
+               tileType === TileType.DROPPED_GEM || 
+               tileType === TileType.BED || 
+               tileType === TileType.WOOD_FLOOR || 
+               tileType === TileType.STONE_FLOOR ||
+               tileType === TileType.DROPPED_LOG || 
+               tileType === TileType.DOOR || 
+               tileType === TileType.SAPLING ||
+               tileType === TileType.HYDROPONICS_TRAY ||
+               tileType === TileType.ARCADE_MACHINE ||
+               tileType === TileType.DROPPED_FOOD ||
+               tileType === TileType.DROPPED_STONE;
+    };
+
+    if (!isWalkable(end.x, end.y)) {
+        // If the end point itself is not walkable (e.g., occupied by another colonist), fail the pathfinding.
+        // This is crucial to prevent colonists from queueing up for an already-taken bed.
+        if (pawnLocations && pawnLocations.has(`${end.x},${end.y}`)) {
+            return null;
+        }
+    }
+
+
+    if (start.x === end.x && start.y === end.y) return [start];
+
+    while (queue.length > 0) {
+        const path = queue.shift() as Point[];
+        const { x, y } = path[path.length - 1];
+        if (x === end.x && y === end.y) return path;
+
+        const neighbors = [[x, y - 1], [x, y + 1], [x - 1, y], [x + 1, y]];
+        for (const [nx, ny] of neighbors) {
+            if (!visited.has(`${nx},${ny}`) && isWalkable(nx, ny)) {
+                visited.add(`${nx},${ny}`);
+                queue.push([...path, { x: nx, y: ny }]);
+            }
+        }
+    }
+    return null;
+};
+</file>
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+</file>
+<file path="0.10.0-update.md">
+# Roadmap: Project Asteroid v0.10.0
+
+This document outlines the phased development plan to reach version 0.10.0. The primary goals are to stabilize and deepen core colonist simulation mechanics and to integrate Gemini as a dynamic, god-like narrator and event director.
+
+## Phase 1: Stabilize Core Mechanics (Needs & Motivation)
+
+**Objective:** Refactor the colonist AI to be driven by a more robust needs system, introducing `hunger` and `boredom`. This will fix current gameplay loops broken by the initial, simple implementation.
+
+**Progress:** `[COMPLETED]`
+
+### Todo List:
+
+-   [x] **Colonist Stats:** Add `hunger` and `boredom` properties to the `Colonist` type.
+-   [x] **Needs Decay:** Implement logic in the game tick for hunger and boredom to change over time.
+-   [x] **New Buildables:**
+    -   [x] Add `Hydroponics Tray` for food production.
+    -   [x] Add `Arcade Machine` for recreation.
+    -   [x] Integrate new buildables into the UI (Build Menu, Legend).
+-   [x] **UI Updates:**
+    -   [x] Display `Hunger` and `Boredom` stats in the Colonist Inspector Panel.
+    -   [x] Display stored `Food` in the main Stats Panel.
+-   [x] **Priority-Based AI:**
+    -   [x] Refactor colonist task selection to prioritize critical needs (e.g., eating when starving, sleeping when exhausted) over player-designated tasks.
+    -   [x] Create specific tasks and behaviors for satisfying needs:
+        -   [x] `EAT` task: Colonist goes to a storage zone, gets food, and consumes it.
+        -   [x] `PLAY` task: Colonist goes to an Arcade Machine to reduce boredom.
+-   [x] **Food Production Loop:**
+    -   [x] `GROW` task: Colonists must tend to Hydroponics Trays.
+    -   [x] `HARVEST` task: Colonists harvest grown food from trays.
+    -   [x] `HAUL` task: Colonists haul harvested food to storage.
+
+### Post-Completion Patches
+- [x] **AI Patch:** Corrected an issue where colonists would not attempt to harvest or plant food when storage was empty, leading to starvation. The needs-driven AI now correctly prioritizes the entire food production chain.
+
+---
+
+## Phase 2: Gemini as The Narrator (Colony Chronology)
+
+**Objective:** Introduce a new UI panel, the "Colony Chronology," where Gemini generates narrative text based on game events, creating a unique story for each playthrough with a subtle, paternal "god-in-the-machine" tone.
+
+**Progress:** `[COMPLETED]`
+
+### Todo List:
+
+-   [x] **Gemini API Integration:**
+    -   [x] Set up `@google/genai` SDK.
+    -   [x] Create a secure way to handle the API key (using environment variables).
+-   [x] **Narrative Direction:**
+    -   [x] Define a core narrative theme inspired by the interstellar object 3I/ATLAS (a "manx" comet).
+-   [x] **Initial Game Setup:**
+    -   [x] On "New Game", call Gemini to generate a unique seed, colony name, asteroid name, and brief backstories for the starting colonists, all based on the new narrative theme.
+    -   [x] Display this generated information at the start of the game.
+-   [x] **Colony Chronology Panel:**
+    -   [x] Design and implement a new UI component for the chronology log.
+-   [x] **Narrative Generation (Dynamic):**
+    -   [x] Create a function to periodically snapshot the current game state (colonist actions, resource levels, recent events).
+    -   [x] Develop a carefully crafted prompt for Gemini that instructs it to interpret the game state and generate a log entry in the desired tone.
+    -   [x] Call Gemini with the state and prompt, then display the generated text in the Chronology panel with a timestamp.
+-   [x] **Narrative Acknowledgment of Death:** Gemini's prompt is now updated with information about colonist deaths, allowing it to generate appropriate chronicle entries.
+
+---
+
+## Phase 3: Gemini as The Event Director
+
+**Objective:** Replace the simple random event system with a Gemini-driven one. Gemini will act as an intelligent "dungeon master," triggering events that are contextually relevant to the colony's current situation.
+
+**Progress:** `[NOT STARTED]`
+
+### Todo List:
+
+-   [ ] **Event System Refactor:**
+    -   [ ] Create a new function that calls Gemini at the start of each game day.
+    -   [ ] The prompt will provide a summary of the colony's status (e.g., "Resources are high, but happiness is low," or "The colonists are struggling to find food").
+-   [ ] **Dynamic Event Generation:**
+    -   [ ] Gemini will be asked to choose or create an event appropriate for the situation (e.g., a "festive mood" event if things are going well, or a "cargo pod with food" event if they are starving).
+    -   [ ] The response should be in a structured format (JSON) that the game can easily parse to trigger the event.
+-   [ ] **Implement New Events:**
+    -   [ ] Expand the range of possible events that Gemini can trigger.
+    -   [ ] Ensure the game logic can handle these new, dynamically triggered events.
+---
+
+## Phase 4: Colony Consequences & Narrative Depth
+
+**Objective:** Introduce deeper consequences for failing to meet colonist needs, enhancing the narrative stakes of the simulation.
+
+**Progress:** `[IN PROGRESS]`
+
+### Todo List:
+- [x] **Deepen Resource System**
+    - [x] Give `Rock` a purpose by making it mineable into a new `Stone` resource.
+    - [x] Add new construction options (Stone Walls, Stone Floors) that use stone.
+    - [x] Integrate `Stone` into the UI (HUD, build menu, legend).
+    - [x] Add the ability to upgrade wood structures to stone.
+- [ ] **Graveyard & Memorials:**
+    - [ ] Automatically place a Tombstone tile when a colonist dies.
+    - [ ] Display memorial information (name, lifespan, cause of death) in the Tile Inspector.
+- [ ] **Stats-Based Death:**
+    - [ ] Implement a system where colonists can die if their `energy` or `hunger` remains critically low for an extended period.
+    - [ ] Generate a narrative log entry via Gemini to describe the colonist's passing.
+- [ ] **Low-Happiness Events:**
+    - [ ] If average colony happiness remains below a certain threshold for too long, trigger a special "despair" or "revolt" event.
+    - [ ] This event will be a narrative game-over, where Gemini generates a final log entry describing the colony's failure (e.g., the colonists give up, turn on each other, or abandon the settlement).
+
+---
+
+## Phase 5: AI & Logic Polish
+
+**Objective:** Refine colonist AI to handle complex situations more gracefully and improve overall simulation stability and API usage.
+
+**Progress:** `[IN PROGRESS]`
+
+### Todo List:
+- [x] **Resolve AI Deadlock:** Investigate and fix the issue where colonists with multiple critical needs (e.g., zero energy and high hunger) can get stuck in a rapid task-switching loop, preventing them from addressing any need.
+    - **Hotfix:** Corrected a flaw in the initial deadlock fix where colonists would freeze if their highest-priority need was unreachable, leading to death by other causes. The logic now allows them to service lower-priority needs if the primary one is blocked.
+- [x] **API Call Frequency & Fallbacks:** Review and adjust the frequency of calls to the Gemini API for the Colony Chronicle to prevent hitting usage limits.
+- [x] **Improved Pathfinding:** Colonist pathfinding now treats other colonists as temporary obstacles, drastically reducing traffic jams and stuck states.
+</file>
+<file path="3iatlas.md">
+# 3I/ATLAS Narrative Inspiration
+
+This file serves as a source of inspiration and thematic guidance for the game's narrative, centered around the concept of a long-journey interstellar object, similar to 3I/ATLAS.
+
+The core idea is that the colony exists on a "manx" comet (a rocky, asteroid-like object with a long-period tail) that has been traveling through interstellar space for eons. The AI overseer (the in-game narrator) is a form of "last alert system" or "ark" activated as the object re-enters a solar system, deploying a human contingent as a survival trial.
+
+## Research & Inspiration Links
+
+-   **Live Tracking:** [https://theskylive.com/c2025n1-info](https://theskylive.com/c2025n1-info)
+-   **NASA Overview:** [https://science.nasa.gov/solar-system/comets/3i-atlas/](https://science.nasa.gov/solar-system/comets/3i-atlas/)
+-   **Scientific Paper:** [https://arxiv.org/html/2508.15768v1](https://arxiv.org/html/2508.15768v1)
+-   **Wikipedia:** [https://en.wikipedia.org/wiki/3I/ATLAS](https://en.wikipedia.org/wiki/3I/ATLAS)
+
+</file>
+<file path="App.tsx">
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
+import { Colonist, ColonistLog, Designations, DesignationType, GameEvent, GameLogItem, Grid, InteractionMode, Point, Tile, TileType, ChronologyEntry, PriorityTask, ColonistRole, SimulationSettings } from './types';
+import * as C from './constants';
+import { distance } from './utils/geometry';
+import { createPRNG, createNoise2D } from './utils/noise';
+import { findPath } from './utils/pathfinding';
+import { initialStoryFallbacks, chronologyPlaceholders } from './utils/fallbackData';
+
+import { IntroModal } from './components/IntroModal';
+import { TopBar } from './components/TopBar';
+import { LeftSidebar } from './components/LeftSidebar';
+import { EventModal } from './components/EventModal';
+import { SettingsModal } from './components/SettingsModal';
+import { CombinedInspectorPanel } from './components/CombinedInspectorPanel';
+import { GameLogPanel } from './components/GameLogPanel';
+import { ColonistWorkLogPanel } from './components/ColonistWorkLogPanel';
+import { ColonyChronologyPanel } from './components/ColonyChronologyPanel';
+import { PriorityTasksModal } from './components/PriorityTasksModal';
+import { ColonyAlertsPanel } from './components/ColonyAlertsPanel';
+import { DirectorModal } from './components/DirectorModal';
+import { BottomBar } from './components/BottomBar';
+
+const generateInitialStory = async (): Promise<{ colonyName: string; asteroidName: string; firstEntry: string; colonists: { name: string; backstory: string }[] }> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const prompt = `Generate a unique sci-fi colony simulation starting scenario. The theme is a small human contingent deployed from an AI-overseen interstellar ark onto a rocky, asteroid-like comet (a 'manx' comet) that has been traveling for eons. Provide the following in JSON format:
+    - colonyName: A unique, evocative name for the colony.
+    - asteroidName: A sci-fi designation for the interstellar object, hinting at its nature.
+    - firstEntry: A short, narrative log entry for the "Colony Chronology". This should be from the perspective of the paternalistic, slightly detached AI overseer observing its simulation trial. It should set the scene, mentioning the protocol and the objective.
+    - colonists: An array of exactly 3 colonists, each with a unique, non-tropey sci-fi 'name' and a short, one-sentence 'backstory' hinting at their past skills or personality. It is crucial to AVOID using generic or common sci-fi names. Do not use names from the following negative list under any circumstances: Kael, Kai, Elara, Lyra, Jian, Thorne, Vance. Create original, less common names that feel authentic to a far-future setting.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        colonyName: { type: Type.STRING },
+                        asteroidName: { type: Type.STRING },
+                        firstEntry: { type: Type.STRING },
+                        colonists: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    name: { type: Type.STRING },
+                                    backstory: { type: Type.STRING },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        const jsonText = response.text.trim();
+        const parsed = JSON.parse(jsonText);
+        
+        if (parsed.colonists && parsed.colonists.length === 3) {
+            return parsed;
+        } else {
+             throw new Error("Invalid number of colonists returned from AI.");
+        }
+
+    } catch (error) {
+        console.error("Error generating story from Gemini, falling back to default:", error);
+        return initialStoryFallbacks[Math.floor(Math.random() * initialStoryFallbacks.length)];
+    }
+};
+
+
+export default function App() {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [grid, setGrid] = useState<Grid | null>(null);
+    const [designations, setDesignations] = useState<Designations | null>(null);
+    const [colonists, setColonists] = useState<Colonist[]>([]);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [gameSpeed, setGameSpeed] = useState(1);
+    const [showIntro, setShowIntro] = useState(true);
+    const [storedMinerals, setStoredMinerals] = useState(0);
+    const [storedGems, setStoredGems] = useState(0);
+    const [storedLogs, setStoredLogs] = useState(15);
+    const [storedStone, setStoredStone] = useState(0);
+    const [storedFood, setStoredFood] = useState(C.INITIAL_FOOD);
+    const [selectedColonist, setSelectedColonist] = useState<Colonist | null>(null);
+    const [hoveredTile, setHoveredTile] = useState<Tile | null>(null);
+    const [averageHappiness, setAverageHappiness] = useState(C.MAX_HAPPINESS);
+    const [workEfficiency, setWorkEfficiency] = useState(100);
+    const [milestoneLevel, setMilestoneLevel] = useState(0);
+    const [currentGoal, setCurrentGoal] = useState(C.INITIAL_GOAL);
+    const [activeEvents, setActiveEvents] = useState<GameEvent[]>([]);
+    const [eventPopup, setEventPopup] = useState<GameEvent | null>(null);
+    const [gameLog, setGameLog] = useState<GameLogItem[]>([]);
+    const [gameTime, setGameTime] = useState(0);
+    const [interactionMode, setInteractionMode] = useState<InteractionMode>('INSPECT');
+    const [designationType, setDesignationType] = useState<DesignationType | null>(null);
+    const [importError, setImportError] = useState("");
+    const [tickCount, setTickCount] = useState(0);
+    const [currentDay, setCurrentDay] = useState(1);
+    const [currentHour, setCurrentHour] = useState(6);
+    const [seed, setSeed] = useState(Date.now().toString().slice(-4));
+    const [showSettings, setShowSettings] = useState(false);
+    const [cursor, setCursor] = useState('default');
+    
+    const [isGenerating, setIsGenerating] = useState(true);
+    const [colonyName, setColonyName] = useState("");
+    const [asteroidName, setAsteroidName] = useState("");
+    const [chronology, setChronology] = useState<ChronologyEntry[]>([]);
+    const [isNarrating, setIsNarrating] = useState(false);
+    const [expandedPanel, setExpandedPanel] = useState<'chronology' | 'log' | 'none'>('chronology');
+    const [apiFailed, setApiFailed] = useState(false);
+    const [colonyStats, setColonyStats] = useState({ softResets: 0, hardResets: 0 });
+    
+    const [unstuckPressCount, setUnstuckPressCount] = useState(0);
+    const unstuckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const [colonistLogs, setColonistLogs] = useState<ColonistLog[]>([]);
+    const [priorityTasks, setPriorityTasks] = useState<PriorityTask[]>([]);
+    const [showPrioritiesModal, setShowPrioritiesModal] = useState(false);
+    const [isEventGenerationRunning, setIsEventGenerationRunning] = useState(false);
+
+    const [showDirectorModal, setShowDirectorModal] = useState(false);
+    const [simulationSettings, setSimulationSettings] = useState<SimulationSettings>({ allowNewColonists: true });
+
+    const isDesignating = useRef(false);
+    const designationStart = useRef<Point | null>(null);
+    const designationDragStart = useRef<Designations | null>(null);
+
+    const isDay = (currentHour >= 7 && currentHour < 19);
+
+    const addLog = useCallback((message: string, type: 'standard' | 'event' = 'standard') => {
+        const time = new Date();
+        const timestamp = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}:${time.getSeconds().toString().padStart(2, '0')}`;
+        setGameLog(prevLog => [{msg: `[${timestamp}] ${message}`, type}, ...prevLog].slice(0, 100));
+    }, []);
+    
+    const addChronologyEntry = useCallback((message: string) => {
+        const timestamp = `Day ${currentDay}, ${String(currentHour).padStart(2, '0')}:00`;
+        setChronology(prev => [...prev, { timestamp, message }]);
+    }, [currentDay, currentHour]);
+
+    const validTile = (arr: any[][], y: number, x: number) => arr && arr[y] && arr[y][x] !== undefined;
+
+    const isTileDesignatable = (tileType: TileType, designationType: DesignationType): boolean => {
+        switch (designationType) {
+            case DesignationType.MINE:
+                return [TileType.ROCK, TileType.MINERAL, TileType.GEM].includes(tileType);
+            case DesignationType.CHOP:
+                return tileType === TileType.TREE;
+            case DesignationType.HARVEST: // This is a meta-type in the UI that can mean mine or chop
+                return [TileType.ROCK, TileType.MINERAL, TileType.GEM, TileType.TREE].includes(tileType);
+            case DesignationType.BUILD_WOOD_FLOOR:
+            case DesignationType.BUILD_WOOD_WALL:
+            case DesignationType.BUILD_DOOR:
+            case DesignationType.BUILD_BED:
+            case DesignationType.BUILD_STORAGE:
+            case DesignationType.BUILD_HYDROPONICS:
+            case DesignationType.BUILD_ARCADE:
+            case DesignationType.BUILD_STONE_FLOOR:
+            case DesignationType.BUILD_STONE_WALL:
+                return [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR].includes(tileType);
+            case DesignationType.UPGRADE_TO_STONE_FLOOR:
+                return tileType === TileType.WOOD_FLOOR;
+            case DesignationType.UPGRADE_TO_STONE_WALL:
+                return tileType === TileType.WOOD_WALL;
+            default:
+                return false;
+        }
+    };
+
+    const recordColonistWorkLog = useCallback((updatedColonists: Colonist[], tickNum: number) => {
+        setColonistLogs(logs => {
+            const newLogs = Array.from({length: updatedColonists.length}, (_, i) => logs[i] || Array(C.DAY_LENGTH_TICKS).fill(null));
+            updatedColonists.forEach((colonist, idx) => {
+                const activityEntry = { task: colonist.task, carrying: colonist.carrying };
+                 if(newLogs[idx]) {
+                    newLogs[idx][tickNum % newLogs[idx].length] = activityEntry;
+                }
+            });
+            return newLogs;
+        });
+    }, []);
+
+    const summarizeGameState = useCallback(() => {
+        const happinessStatus = averageHappiness > 70 ? "high" : averageHappiness > 40 ? "stable" : "low";
+        const resourceStatus = (storedFood < 10) ? "critically low" : (storedMinerals < 10 && storedLogs < 10) ? "low" : "stable";
+        
+        let recentActions: { [key: string]: number } = {};
+        colonists.forEach((c, idx) => {
+            const log = colonistLogs[idx];
+            if (!log) return;
+            const recentTicks = log.slice(Math.max(0, tickCount - 50), tickCount);
+            recentTicks.forEach(entry => {
+                if (entry) {
+                    const genericTask = entry.task.split('_')[0]; // e.g., MOVING_TO_MINE -> MOVING
+                    recentActions[genericTask] = (recentActions[genericTask] || 0) + 1;
+                }
+            });
+        });
+        
+        const dominantActivity = Object.keys(recentActions).length > 0 ? Object.entries(recentActions).reduce((a, b) => a[1] > b[1] ? a : b)[0] : "idling";
+
+        return `Day ${currentDay}, ${String(currentHour).padStart(2, '0')}:00. Morale is ${happinessStatus} (${averageHappiness.toFixed(0)}%). Food reserves are ${resourceStatus}. The colonists are primarily focused on ${dominantActivity.toLowerCase()}.`;
+
+    }, [averageHappiness, storedMinerals, storedLogs, storedFood, colonists, colonistLogs, tickCount, currentDay, currentHour]);
+
+    const generateChronicleUpdate = useCallback(async () => {
+        if(isNarrating) return;
+        setIsNarrating(true);
+
+        const summary = summarizeGameState();
+        const prevChronicles = chronology.slice(-4).map(c => `[${c.timestamp}] ${c.message}`).join('\n');
+
+        const prompt = `You are the AI Overseer of Project Asteroid, a simulation trial on an ancient interstellar object. Your tone is paternalistic, clinical, yet with a subtle hint of fascination or disappointment in your human subjects.
+        
+        PREVIOUS CHRONICLE ENTRIES:
+        ${prevChronicles}
+        
+        CURRENT STATUS:
+        ${summary}
+        
+        Based on the current status and recent events, write the next single, short (1-2 sentences) log entry for the chronicle. Focus on a noteworthy aspect of the current status from your observational perspective. Do not repeat previous entries or the summary verbatim. Your response must be a single JSON object with one key: "newEntry".`;
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                 config: {
+                    responseMimeType: "application/json",
+                    responseSchema: { type: Type.OBJECT, properties: { newEntry: { type: Type.STRING } } }
+                }
+            });
+            const jsonText = response.text.trim();
+            const parsed = JSON.parse(jsonText);
+            if(parsed.newEntry) {
+                 addChronologyEntry(parsed.newEntry);
+            }
+        } catch (error) {
+            console.error("Failed to generate chronicle update:", error);
+            if (!apiFailed) {
+                addLog("AI Narrator API limit may be reached. Chronicle will now show placeholder updates. This does not affect gameplay.", "event");
+                setApiFailed(true);
+            }
+            const placeholder = chronologyPlaceholders[Math.floor(Math.random() * chronologyPlaceholders.length)];
+            addChronologyEntry(placeholder);
+        } finally {
+            setIsNarrating(false);
+        }
+
+    }, [chronology, summarizeGameState, addChronologyEntry, isNarrating, apiFailed, addLog]);
+
+    const generateDailyEvent = useCallback(async (): Promise<GameEvent | null> => {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+        const summary = summarizeGameState();
+
+        let possibleEvents = ['METEOR_SHOWER', 'HIGH_MORALE', 'PRODUCTIVITY_BOOST', 'MINOR_SETBACK', 'TRAGIC_ACCIDENT', 'NO_EVENT'];
+        if (simulationSettings.allowNewColonists) {
+            possibleEvents.push('NEW_COLONIST');
+        }
+
+        const prompt = `You are an AI Event Director for a sci-fi colony simulation game. Your role is to act as an intelligent "dungeon master," triggering events that are contextually relevant to the colony's current situation.
+        
+        CURRENT COLONY STATUS:
+        ${summary}
+        Number of colonists: ${colonists.length}
+
+        Based on the status, decide if an event should occur today.
+        - If things are going too well (high morale, lots of resources), consider a minor setback.
+        - If the colony is struggling (low food, low morale), consider a helpful event or a challenging one to increase tension. A 'NEW_COLONIST' event can be good, but not if food is critically low. A 'TRAGIC_ACCIDENT' should be rare and only used if there are more than 2 colonists.
+        - Sometimes, no event is the best choice to let the player stabilize. There should be a good chance of no event.
+
+        Your response must be a single JSON object. Choose one eventType from this list: ${possibleEvents.join(', ')}. If you choose 'NO_EVENT', the message can be empty.
+        
+        Provide your response in this exact JSON format:
+        {
+          "shouldTrigger": boolean, // true if an event should happen, false otherwise.
+          "eventType": "string", // One of the event types from the list. If shouldTrigger is false, this should be 'NO_EVENT'.
+          "message": "string" // A creative, short message for the player announcing the event.
+        }`;
+    
+        try {
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            shouldTrigger: { type: Type.BOOLEAN },
+                            eventType: { type: Type.STRING, enum: possibleEvents },
+                            message: { type: Type.STRING }
+                        },
+                        required: ["shouldTrigger", "eventType", "message"]
+                    }
+                }
+            });
+    
+            const jsonText = response.text.trim();
+            const parsed: { shouldTrigger: boolean; eventType: string; message: string } = JSON.parse(jsonText);
+    
+            if (parsed.shouldTrigger && parsed.eventType !== 'NO_EVENT') {
+                if (parsed.eventType === 'TRAGIC_ACCIDENT' && colonists.length <= 1) return null;
+                if (parsed.eventType === 'NEW_COLONIST' && (storedFood < 10 || !simulationSettings.allowNewColonists)) return null;
+                
+                const eventDurations: { [key: string]: number } = {
+                    'HIGH_MORALE': C.DAY_LENGTH_TICKS / 2,
+                    'PRODUCTIVITY_BOOST': C.DAY_LENGTH_TICKS / 2,
+                    'MINOR_SETBACK': C.DAY_LENGTH_TICKS / 2,
+                    'METEOR_SHOWER': 1, 'NEW_COLONIST': 1, 'TRAGIC_ACCIDENT': 1,
+                };
+    
+                return {
+                    id: parsed.eventType,
+                    duration: eventDurations[parsed.eventType] || 1,
+                    message: parsed.message,
+                    type: 'event',
+                    pauses: true
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error("Error generating daily event from Gemini:", error);
+            addLog("AI Event Director failed. Using fallback random event.", "event");
+            if (Math.random() < C.DAILY_EVENT_CHANCE) {
+                const eventTypes: GameEvent[] = [
+                    { id: 'METEOR_SHOWER', duration: 1, message: "A small meteor shower impacts the surface, revealing new minerals!", type: 'event', pauses: true },
+                    { id: 'HIGH_MORALE', duration: C.DAY_LENGTH_TICKS / 2, message: "Everyone is feeling particularly cheerful today!", type: 'event', pauses: true },
+                    { id: 'PRODUCTIVITY_BOOST', duration: C.DAY_LENGTH_TICKS / 2, message: "A surge of motivation improves work speed.", type: 'event', pauses: true },
+                    { id: 'MINOR_SETBACK', duration: C.DAY_LENGTH_TICKS / 2, message: "A tool malfunction is slowing down work.", type: 'event', pauses: true },
+                    { id: 'NEW_COLONIST', duration: 1, message: "A wanderer has arrived and joined the colony!", type: 'event', pauses: true },
+                    { id: 'TRAGIC_ACCIDENT', duration: 1, message: "A tragic accident has occurred.", type: 'event', pauses: true },
+                ];
+                let event = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+                if (event.id === 'TRAGIC_ACCIDENT' && colonists.length <= 1) event = eventTypes[0];
+                if (event.id === 'NEW_COLONIST' && !simulationSettings.allowNewColonists) return null;
+                return event;
+            }
+            return null;
+        }
+    }, [summarizeGameState, colonists.length, storedFood, addLog, simulationSettings]);
+
+    const gameTick = useCallback(() => {
+        if (!grid || !designations) return;
+        const currentTick = tickCount + 1;
+        setGameTime(t => t + 1);
+        setTickCount(currentTick);
+
+        if ((currentTick % C.DAY_LENGTH_TICKS) === 0) setCurrentDay(day => day + 1);
+        setCurrentHour(Math.floor((currentTick % C.DAY_LENGTH_TICKS) / C.TICKS_PER_HOUR));
+        
+        if (currentTick > 0 && currentTick % 750 === 0 && !isNarrating) {
+            generateChronicleUpdate();
+        }
+
+        let newGrid: Grid = grid.map(row => row.map(cell => ({...cell})));
+        let newDesignations: Designations = designations.map(row => [...row]);
+        let gridChanged = false;
+
+        const updatedEvents = activeEvents.map(e => ({...e, duration: e.duration - 1 })).filter(e => e.duration > 0);
+        if(activeEvents.length > updatedEvents.length) addLog("An event's effects have worn off.", "event");
+        setActiveEvents(updatedEvents);
+
+        for (let y = 0; y < C.GRID_HEIGHT; y++) {
+            for (let x = 0; x < C.GRID_WIDTH; x++) {
+                const tile = newGrid[y][x];
+                if(tile.type === TileType.EMPTY && Math.random() < C.TREE_REGROWTH_CHANCE) {
+                    tile.type = TileType.SAPLING;
+                    tile.regrowthTicks = 0;
+                    gridChanged = true;
+                } else if (tile.type === TileType.SAPLING) {
+                    tile.regrowthTicks = (tile.regrowthTicks || 0) + 1;
+                    if(tile.regrowthTicks >= C.SAPLING_TO_TREE_TICKS) {
+                        tile.type = TileType.TREE;
+                        tile.regrowthTicks = 0;
+                        gridChanged = true;
+                    }
+                } else if (tile.type === TileType.HYDROPONICS_TRAY && tile.growth !== undefined && tile.growth < C.CROP_GROWTH_DURATION) {
+                    tile.growth++;
+                    gridChanged = true;
+                }
+            }
+        }
+
+        let mineralsThisTick = 0, gemsThisTick = 0, logsThisTick = 0, foodThisTick = 0, stoneThisTick = 0, happinessBoostThisTick = false;
+
+        setColonists(prevColonists => {
+            const deathsThisTick: {colonist: Colonist, cause: string}[] = [];
+            const pawnTiles = new Set(prevColonists.map(p=>`${p.x},${p.y}`));
+            const claimedTargetsThisTick = new Set<string>();
+            prevColonists.forEach(p => { if (p.target) { claimedTargetsThisTick.add(`${p.target.x},${p.target.y}`); } });
+            
+            let workSpeedModifier = activeEvents.some(e => e.id === 'PRODUCTIVITY_BOOST') ? 1.5 : 1;
+            if(activeEvents.some(e => e.id === 'MINOR_SETBACK')) workSpeedModifier *= 0.75;
+            if(averageHappiness <= C.LOW_MORALE_THRESHOLD) workSpeedModifier *= 0.5;
+
+            let happinessDecay = C.HAPPINESS_DECAY_rate;
+            if(activeEvents.some(e => e.id === 'HIGH_MORALE')) happinessDecay = 0;
+            
+            const dropCarriedItem = (pawn: Colonist) => {
+                if (pawn.carrying && validTile(newGrid, pawn.y, pawn.x) && [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR].includes(newGrid[pawn.y][pawn.x].type)) {
+                    let dropType: TileType | null = null;
+                    if (pawn.carrying === TileType.MINERAL) dropType = TileType.DROPPED_MINERAL;
+                    else if (pawn.carrying === TileType.GEM) dropType = TileType.DROPPED_GEM;
+                    else if (pawn.carrying === 'LOGS') dropType = TileType.DROPPED_LOG;
+                    else if (pawn.carrying === 'FOOD') dropType = TileType.DROPPED_FOOD;
+                    else if (pawn.carrying === 'STONE') dropType = TileType.DROPPED_STONE;
+                    if (dropType) { newGrid[pawn.y][pawn.x].type = dropType; gridChanged = true; }
+                }
+            };
+
+            const softReset = (pawn: Colonist) => {
+                dropCarriedItem(pawn);
+                pawn.task = 'IDLE'; 
+                pawn.target = null; 
+                pawn.path = []; 
+                pawn.workTicks = 0; 
+                pawn.patience = C.COLONIST_PATIENCE; 
+                pawn.carrying = null;
+                pawn.carryingAmount = undefined;
+            };
+
+            let updatedColonists = prevColonists.map((colonist, idx) => {
+                let nc = { ...colonist };
+
+                // Automatic unstuck logic
+                if (nc.lastPosition && nc.x === nc.lastPosition.x && nc.y === nc.lastPosition.y) {
+                    nc.stuckTicks = (nc.stuckTicks || 0) + 1;
+                } else {
+                    nc.stuckTicks = 0;
+                }
+                nc.lastPosition = { x: nc.x, y: nc.y };
+
+                if (nc.stuckTicks >= C.AUTO_UNSTUCK_HARD_TICKS) {
+                    let escapePathFound = false;
+                    
+                    let storageTargets = [];
+                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.STORAGE) storageTargets.push({x,y, dist: distance(nc, {x,y})});
+                    storageTargets.sort((a,b) => a.dist - b.dist);
+                    
+                    const escapeTarget = storageTargets.length > 0 ? storageTargets[0] : { x: Math.floor(C.GRID_WIDTH / 2), y: Math.floor(C.GRID_HEIGHT / 2) };
+
+                    const emergencyPath = findPath(nc, escapeTarget, newGrid, pawnTiles);
+                    
+                    if (emergencyPath) {
+                        addLog(`${nc.name} is trapped! Initiating emergency pathing to escape.`, 'event');
+                        softReset(nc);
+                        nc.task = 'MOVING_TO_IDLE';
+                        nc.path = emergencyPath.slice(1);
+                        nc.target = escapeTarget;
+                        nc.stuckTicks = 0;
+                        nc.softResetCount = (nc.softResetCount || 0) + 1;
+                        escapePathFound = true;
+                    }
+
+                    if (!escapePathFound) {
+                        addLog(`${nc.name} was severely stuck. Teleporting to safety.`, 'event');
+                        const startX = Math.floor(C.GRID_WIDTH / 2);
+                        const startY = Math.floor(C.GRID_HEIGHT / 2);
+                        dropCarriedItem(nc);
+                        nc.x = startX + idx;
+                        nc.y = startY + 1;
+                        softReset(nc);
+                        nc.stuckTicks = 0;
+                        nc.hardResetCount = (nc.hardResetCount || 0) + 1;
+                    }
+                    return nc;
+                } else if (nc.stuckTicks === C.AUTO_UNSTUCK_MEDIUM_TICKS) {
+                    addLog(`${nc.name} is still stuck. Trying another reset.`, 'event');
+                    softReset(nc);
+                    nc.softResetCount = (nc.softResetCount || 0) + 1;
+                } else if (nc.stuckTicks === C.AUTO_UNSTUCK_SOFT_TICKS) {
+                    addLog(`${nc.name} has been stuck for a while. Resetting task.`, 'event');
+                    softReset(nc);
+                    nc.softResetCount = (nc.softResetCount || 0) + 1;
+                }
+                
+                nc.happiness = Math.max(0, nc.happiness - happinessDecay);
+                nc.hunger = Math.min(C.MAX_HUNGER, nc.hunger + C.HUNGER_INCREASE_RATE);
+                nc.boredom = Math.min(C.MAX_BOREDOM, nc.boredom + C.BOREDOM_INCREASE_RATE);
+                
+                const energyCost = (nc.task === 'MINING' || nc.task === 'BUILDING' || nc.task === 'CHOPPING' || nc.carrying) ? 3 : 1;
+                if (nc.task !== 'RESTING' && nc.task !== 'IDLE') nc.energy = Math.max(0, nc.energy - energyCost);
+               
+                if (nc.hunger >= C.CRITICAL_HUNGER_THRESHOLD && nc.criticallyLowHungerTicks === 0) {
+                    addLog(`${nc.name} is starving!`, 'event');
+                }
+
+                if (nc.energy <= C.CRITICAL_ENERGY_THRESHOLD) {
+                    nc.criticallyLowEnergyTicks = (nc.criticallyLowEnergyTicks || 0) + 1;
+                } else {
+                    nc.criticallyLowEnergyTicks = 0;
+                }
+
+                if (nc.hunger >= C.CRITICAL_HUNGER_THRESHOLD) {
+                    nc.criticallyLowHungerTicks = (nc.criticallyLowHungerTicks || 0) + 1;
+                } else {
+                    nc.criticallyLowHungerTicks = 0;
+                }
+
+                if (nc.criticallyLowEnergyTicks > C.TICKS_TO_DEATH) {
+                    deathsThisTick.push({colonist: nc, cause: 'exhaustion'});
+                    return nc; // Stop processing this colonist
+                }
+                if (nc.criticallyLowHungerTicks > C.TICKS_TO_DEATH) {
+                    deathsThisTick.push({colonist: nc, cause: 'starvation'});
+                    return nc; // Stop processing this colonist
+                }
+
+                const needs = [
+                    { condition: nc.hunger >= C.URGENT_HUNGER_THRESHOLD, type: 'HUNGER' },
+                    { condition: nc.energy <= C.LOW_ENERGY_THRESHOLD, type: 'ENERGY' },
+                    { condition: nc.boredom >= C.HIGH_BOREDOM_THRESHOLD, type: 'BOREDOM' },
+                ];
+
+                let assignedNeedTask = false;
+                for (const need of needs) {
+                    if (need.condition) {
+                        let taskAssigned = false;
+                        if (need.type === 'ENERGY') {
+                            if (nc.task !== 'RESTING' && nc.task !== 'MOVING_TO_REST') {
+                                let bedTargets = [];
+                                for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.BED && !pawnTiles.has(`${x},${y}`) && !claimedTargetsThisTick.has(`${x},${y}`)) bedTargets.push({x,y, dist: distance(nc, {x,y})});
+                                bedTargets.sort((a,b) => a.dist - b.dist);
+
+                                for(const target of bedTargets) {
+                                    const path = findPath(nc, target, newGrid, pawnTiles);
+                                    if (path) {
+                                        dropCarriedItem(nc);
+                                        nc.task = 'MOVING_TO_REST'; nc.path = path.slice(1); nc.target = target; nc.patience = C.COLONIST_PATIENCE;
+                                        addLog(`${nc.name} is tired, going to rest.`);
+                                        claimedTargetsThisTick.add(`${target.x},${target.y}`);
+                                        taskAssigned = true;
+                                        break;
+                                    }
+                                }
+                            } else { taskAssigned = true; }
+                        } else if (need.type === 'HUNGER') {
+                            if (nc.task !== 'EATING' && nc.task !== 'MOVING_TO_EAT') {
+                                if (storedFood > 0) {
+                                    let storageTargets = [];
+                                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.STORAGE) storageTargets.push({x,y, dist: distance(nc, {x,y})});
+                                    storageTargets.sort((a,b) => a.dist - b.dist);
+                                    for(const target of storageTargets) {
+                                        const path = findPath(nc, target, newGrid, pawnTiles);
+                                        if (path) {
+                                            dropCarriedItem(nc);
+                                            nc.task = 'MOVING_TO_EAT'; nc.path = path.slice(1); nc.target = target; nc.patience = C.COLONIST_PATIENCE;
+                                            addLog(`${nc.name} is hungry, going to get food.`);
+                                            taskAssigned = true;
+                                            break;
+                                        }
+                                    }
+                                } else if (nc.roles.includes('COOK')) {
+                                    let foodTaskFound = false;
+                                    let harvestTargets: (Point & { dist: number })[] = [];
+                                    for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION && !claimedTargetsThisTick.has(`${x},${y}`)) harvestTargets.push({x, y, dist: distance(nc, { x, y }) }); }
+                                    harvestTargets.sort((a,b) => a.dist-b.dist);
+                                    for(const target of harvestTargets) {
+                                        const path = findPath(nc, target, newGrid, pawnTiles);
+                                        if(path) { dropCarriedItem(nc); nc.task = 'MOVING_TO_HARVEST'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and will harvest food.`); claimedTargetsThisTick.add(`${target.x},${target.y}`); foodTaskFound = true; break; }
+                                    }
+                                    if(!foodTaskFound) {
+                                        let plantTargets: (Point & { dist: number })[] = [];
+                                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined && !claimedTargetsThisTick.has(`${x},${y}`)) plantTargets.push({x,y,dist:distance(nc,{x,y})}); }
+                                        plantTargets.sort((a,b)=>a.dist-b.dist);
+                                        for(const target of plantTargets) {
+                                            const path = findPath(nc, target, newGrid, pawnTiles);
+                                            if(path) { dropCarriedItem(nc); nc.task = 'MOVING_TO_PLANT'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; addLog(`${nc.name} is starving and will plant new crops.`); claimedTargetsThisTick.add(`${target.x},${target.y}`); foodTaskFound = true; break; }
+                                        }
+                                    }
+                                    if(foodTaskFound) taskAssigned = true;
+                                }
+                            } else { taskAssigned = true; }
+                        } else if (need.type === 'BOREDOM') {
+                            if (nc.task !== 'PLAYING' && nc.task !== 'MOVING_TO_PLAY') {
+                                let arcadeTargets = [];
+                                for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if (newGrid[y]?.[x]?.type === TileType.ARCADE_MACHINE && !pawnTiles.has(`${x},${y}`) && !claimedTargetsThisTick.has(`${x},${y}`)) arcadeTargets.push({x,y, dist: distance(nc, {x,y})});
+                                arcadeTargets.sort((a,b) => a.dist - b.dist);
+                                for(const target of arcadeTargets) {
+                                    const path = findPath(nc, target, newGrid, pawnTiles);
+                                    if (path) {
+                                        dropCarriedItem(nc);
+                                        nc.task = 'MOVING_TO_PLAY'; nc.path = path.slice(1); nc.target = target; nc.patience = C.COLONIST_PATIENCE;
+                                        addLog(`${nc.name} is bored, going to play.`);
+                                        claimedTargetsThisTick.add(`${target.x},${target.y}`);
+                                        taskAssigned = true;
+                                        break;
+                                    }
+                                }
+                            } else { taskAssigned = true; }
+                        }
+                        if (taskAssigned) {
+                            assignedNeedTask = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (nc.task === 'IDLE' && !assignedNeedTask) {
+                    let taskFound = false;
+                    
+                    if (nc.carrying) {
+                        let storageTargets = [];
+                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) storageTargets.push({x, y, dist: distance(nc, {x,y})});
+                        storageTargets.sort((a,b) => a.dist - b.dist);
+                        for(const target of storageTargets) {
+                            const path = findPath(nc, target, newGrid, pawnTiles); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; break;}
+                        }
+                    }
+
+                    if (!taskFound && nc.roles.includes('HAULER')) {
+                        let droppedTargets: (Point & { dist: number })[] = [];
+                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+                             const tileType = newGrid[y]?.[x]?.type;
+                             if ((tileType === TileType.DROPPED_MINERAL || tileType === TileType.DROPPED_GEM || tileType === TileType.DROPPED_LOG || tileType === TileType.DROPPED_FOOD || tileType === TileType.DROPPED_STONE) && !claimedTargetsThisTick.has(`${x},${y}`)) droppedTargets.push({x,y,dist: distance(nc, {x,y})});
+                        }
+                        droppedTargets.sort((a,b)=>a.dist-b.dist);
+                        for(const target of droppedTargets) {
+                            const path = findPath(nc, target, newGrid, pawnTiles);
+                            if(path && path.length > 1) { nc.task = 'MOVING_TO_HAUL'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; claimedTargetsThisTick.add(`${target.x},${target.y}`); break;}
+                        }
+                    }
+                    
+                    if (!taskFound && nc.roles.includes('COOK')) {
+                        let harvestTargets: (Point & { dist: number })[] = [];
+                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth && tile.growth >= C.CROP_GROWTH_DURATION && !claimedTargetsThisTick.has(`${x},${y}`)) harvestTargets.push({x, y, dist: distance(nc, { x, y }) }); }
+                        harvestTargets.sort((a,b) => a.dist - b.dist);
+                        for(const target of harvestTargets) {
+                            const path = findPath(nc, target, newGrid, pawnTiles);
+                            if (path && path.length > 1) { nc.task = 'MOVING_TO_HARVEST'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; claimedTargetsThisTick.add(`${target.x},${target.y}`); break; }
+                        }
+                    }
+
+                    if (!taskFound) {
+                        for (const task of priorityTasks) {
+                            const { x, y, type } = task;
+                            if (claimedTargetsThisTick.has(`${x},${y}`)) continue;
+                    
+                            let canDoTask = false;
+                            if ((type.includes('BUILD') || type.includes('UPGRADE')) && nc.roles.includes('BUILDER')) canDoTask = true;
+                            if ((type === DesignationType.CHOP || type === DesignationType.MINE) && nc.roles.includes('MINER')) canDoTask = true;
+                    
+                            if (canDoTask) {
+                                const targetPoint = { x, y };
+                                const neighbors = [{ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 }];
+                                let bestPath: Point[] | null = null;
+                    
+                                for (const neighbor of neighbors) {
+                                    if (validTile(newGrid, neighbor.y, neighbor.x)) {
+                                        const path = findPath(nc, neighbor, newGrid, pawnTiles);
+                                        if (path && (!bestPath || path.length < bestPath.length)) {
+                                            bestPath = path;
+                                        }
+                                    }
+                                }
+                    
+                                if (bestPath) {
+                                    if (type.includes('BUILD') || type.includes('UPGRADE')) nc.task = 'MOVING_TO_BUILD';
+                                    else if (type === DesignationType.CHOP) nc.task = 'MOVING_TO_CHOP';
+                                    else if (type === DesignationType.MINE) nc.task = 'MOVING_TO_MINE';
+                    
+                                    nc.target = targetPoint;
+                                    nc.path = bestPath.slice(1);
+                                    nc.patience = C.COLONIST_PATIENCE;
+                                    taskFound = true;
+                                    claimedTargetsThisTick.add(`${x},${y}`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+
+                    if (!taskFound && nc.roles.includes('COOK')) {
+                        let plantTargets: (Point & { dist: number })[] = [];
+                        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { const tile = newGrid[y]?.[x]; if (tile?.type === TileType.HYDROPONICS_TRAY && tile.growth === undefined && !claimedTargetsThisTick.has(`${x},${y}`)) plantTargets.push({x,y,dist:distance(nc,{x,y})}); }
+                        plantTargets.sort((a,b)=>a.dist-b.dist);
+                        for(const target of plantTargets) {
+                             const path = findPath(nc, target, newGrid, pawnTiles);
+                             if (path && path.length > 1) { nc.task = 'MOVING_TO_PLANT'; nc.target = target; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; taskFound = true; claimedTargetsThisTick.add(`${target.x},${target.y}`); break; }
+                        }
+                    }
+                }
+
+                if (nc.task.startsWith('MOVING_')) {
+                    if (nc.path.length > 0) {
+                        const nextStep = nc.path.shift() as Point;
+                        if (prevColonists.some((p,i2)=>i2!==idx && p.x===nextStep.x && p.y===nextStep.y)) {
+                            nc.path.unshift(nextStep); 
+                            nc.patience = (nc.patience || C.COLONIST_PATIENCE) - 1;
+                            if (nc.patience <= 0) { nc.task = 'IDLE'; nc.path = []; nc.target = null; addLog(`${nc.name} is stuck and is reconsidering their life choices.`); }
+                        } else { nc.x = nextStep.x; nc.y = nextStep.y; nc.patience = C.COLONIST_PATIENCE; }
+                    } else {
+                        if(nc.task === 'MOVING_TO_IDLE') { nc.task = 'IDLE'; }
+                        else if(nc.task === 'MOVING_TO_MINE') { nc.task = 'MINING'; }
+                        else if(nc.task === 'MOVING_TO_CHOP') { nc.task = 'CHOPPING'; }
+                        else if(nc.task === 'MOVING_TO_BUILD') { nc.task = 'BUILDING'; }
+                        else if(nc.task === 'MOVING_TO_PLANT') { nc.task = 'PLANTING'; }
+                        else if(nc.task === 'MOVING_TO_HARVEST') { nc.task = 'HARVESTING_FOOD'; }
+                        else if(nc.task === 'MOVING_TO_HAUL') {
+                            const currentTile = newGrid[nc.y]?.[nc.x];
+                            if (currentTile) {
+                                if (currentTile.type === TileType.DROPPED_MINERAL) nc.carrying = TileType.MINERAL;
+                                else if (currentTile.type === TileType.DROPPED_GEM) nc.carrying = TileType.GEM;
+                                else if (currentTile.type === TileType.DROPPED_LOG) nc.carrying = 'LOGS';
+                                else if (currentTile.type === TileType.DROPPED_FOOD) nc.carrying = 'FOOD';
+                                else if (currentTile.type === TileType.DROPPED_STONE) nc.carrying = 'STONE';
+                                nc.carryingAmount = 1;
+                                
+                                let floorTypeAfterHaul = TileType.WOOD_FLOOR;
+                                const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                                for (const [dx, dy] of neighbors) {
+                                    const neighborTile = newGrid[nc.y + dy]?.[nc.x + dx];
+                                    if (neighborTile && neighborTile.type === TileType.STONE_FLOOR) {
+                                        floorTypeAfterHaul = TileType.STONE_FLOOR;
+                                        break;
+                                    }
+                                }
+                                currentTile.type = [TileType.WOOD_FLOOR, TileType.STONE_FLOOR].includes(currentTile.type) ? currentTile.type : TileType.EMPTY;
+                                gridChanged = true;
+                            }
+                            let nearestStorage: Point | null = null, minStorageDist = Infinity;
+                            for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
+                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, pawnTiles); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
+                        }
+                        else if(nc.task === 'MOVING_TO_STORAGE') {
+                            if (nc.carrying === TileType.MINERAL) mineralsThisTick++;
+                            else if (nc.carrying === TileType.GEM) gemsThisTick++;
+                            else if (nc.carrying === 'LOGS') logsThisTick++;
+                            else if (nc.carrying === 'STONE') stoneThisTick++;
+                            else if (nc.carrying === 'FOOD') foodThisTick += (nc.carryingAmount || 1);
+                            addLog(`${nc.name} stored a resource.`);
+                            nc.carrying = null; nc.carryingAmount = undefined; happinessBoostThisTick = true; nc.task = 'IDLE';
+                        }
+                        else if(nc.task === 'MOVING_TO_REST') nc.task = 'RESTING';
+                        else if(nc.task === 'MOVING_TO_EAT') { nc.task = 'EATING'; foodThisTick--; }
+                        else if(nc.task === 'MOVING_TO_PLAY') nc.task = 'PLAYING';
+                    }
+                }
+
+                if (nc.task === 'MINING' || nc.task === 'CHOPPING' || nc.task === 'BUILDING' || nc.task === 'PLANTING' || nc.task === 'HARVESTING_FOOD') {
+                    if (!nc.target) { nc.task = 'IDLE'; return nc; }
+                    const requiredDuration = nc.task === 'MINING' ? C.MINING_DURATION : nc.task === 'CHOPPING' ? C.CHOPPING_DURATION : nc.task === 'PLANTING' ? C.PLANTING_DURATION : nc.task === 'HARVESTING_FOOD' ? C.HARVESTING_DURATION : C.BUILD_DURATION;
+                    nc.workTicks += workSpeedModifier;
+                    if (nc.workTicks >= requiredDuration) {
+                        const {x, y} = nc.target;
+                        const targetTile = newGrid[y]?.[x];
+                        const targetDesignation = newDesignations[y]?.[x];
+
+                        if (nc.task === 'HARVESTING_FOOD') {
+                            addLog(`${nc.name} harvested ${C.FOOD_YIELD_PER_HARVEST} food at (${x}, ${y}).`);
+                            if(targetTile) targetTile.growth = undefined;
+                            gridChanged = true;
+                            nc.carrying = 'FOOD';
+                            nc.carryingAmount = C.FOOD_YIELD_PER_HARVEST;
+
+                            let nearestStorage: Point | null = null, minStorageDist = Infinity;
+                            for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) if(newGrid[y]?.[x]?.type === TileType.STORAGE) { const d = distance(nc, {x, y}); if(d < minStorageDist) { minStorageDist = d; nearestStorage = {x, y}; } }
+                            if(nearestStorage) { const path = findPath(nc, nearestStorage, newGrid, pawnTiles); if(path && path.length > 1) { nc.task = 'MOVING_TO_STORAGE'; nc.path = path.slice(1); nc.patience = C.COLONIST_PATIENCE; } else { nc.task = 'IDLE'; } } else { nc.task = 'IDLE'; }
+                            
+                            nc.workTicks = 0; nc.target = null;
+                            return nc;
+                        }
+
+                        if (targetTile) {
+                             if(nc.task === 'MINING') {
+                                addLog(`${nc.name} finished mining at (${x}, ${y}).`);
+                                if (targetTile.type === TileType.MINERAL) targetTile.type = TileType.DROPPED_MINERAL;
+                                else if (targetTile.type === TileType.GEM) targetTile.type = TileType.DROPPED_GEM;
+                                else if (targetTile.type === TileType.ROCK) targetTile.type = TileType.DROPPED_STONE;
+                                else targetTile.type = TileType.EMPTY;
+                            } else if (nc.task === 'CHOPPING') {
+                                addLog(`${nc.name} finished chopping at (${x}, ${y}).`);
+                                targetTile.type = TileType.DROPPED_LOG;
+                            } else if (nc.task === 'BUILDING') {
+                                if(targetDesignation === DesignationType.BUILD_WOOD_FLOOR) { addLog(`${nc.name} finished building wood floor at (${x}, ${y}).`); targetTile.type = TileType.WOOD_FLOOR; logsThisTick -= C.FLOOR_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_WOOD_WALL) { addLog(`${nc.name} finished building wood wall at (${x}, ${y}).`); targetTile.type = TileType.WOOD_WALL; logsThisTick -= C.WALL_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_STONE_FLOOR) { addLog(`${nc.name} finished building stone floor at (${x}, ${y}).`); targetTile.type = TileType.STONE_FLOOR; stoneThisTick -= C.STONE_FLOOR_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_STONE_WALL) { addLog(`${nc.name} finished building stone wall at (${x}, ${y}).`); targetTile.type = TileType.STONE_WALL; stoneThisTick -= C.STONE_WALL_COST; } 
+                                else if (targetDesignation === DesignationType.UPGRADE_TO_STONE_FLOOR) { addLog(`${nc.name} upgraded floor to stone at (${x}, ${y}).`); targetTile.type = TileType.STONE_FLOOR; stoneThisTick -= C.STONE_FLOOR_COST; }
+                                else if (targetDesignation === DesignationType.UPGRADE_TO_STONE_WALL) { addLog(`${nc.name} upgraded wall to stone at (${x}, ${y}).`); targetTile.type = TileType.STONE_WALL; stoneThisTick -= C.STONE_WALL_COST; }
+                                else if (targetDesignation === DesignationType.BUILD_DOOR) { addLog(`${nc.name} finished building door at (${x}, ${y}).`); targetTile.type = TileType.DOOR; logsThisTick -= C.DOOR_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_BED) { addLog(`${nc.name} finished building bed at (${x}, ${y}).`); targetTile.type = TileType.BED; logsThisTick -= C.BED_COST; } 
+                                else if (targetDesignation === DesignationType.BUILD_STORAGE) { addLog(`${nc.name} finished building storage at (${x}, ${y}).`); targetTile.type = TileType.STORAGE; logsThisTick -= C.STORAGE_COST; }
+                                else if (targetDesignation === DesignationType.BUILD_HYDROPONICS) { addLog(`${nc.name} finished building hydroponics at (${x}, ${y}).`); targetTile.type = TileType.HYDROPONICS_TRAY; logsThisTick -= C.HYDROPONICS_COST.logs; stoneThisTick -= C.HYDROPONICS_COST.stone; mineralsThisTick -= C.HYDROPONICS_COST.minerals; }
+                                else if (targetDesignation === DesignationType.BUILD_ARCADE) { addLog(`${nc.name} finished building arcade at (${x}, ${y}).`); targetTile.type = TileType.ARCADE_MACHINE; logsThisTick -= C.ARCADE_COST.logs; stoneThisTick -= C.ARCADE_COST.stone; mineralsThisTick -= C.ARCADE_COST.minerals; gemsThisTick -= C.ARCADE_COST.gems; }
+                            } else if (nc.task === 'PLANTING') {
+                                addLog(`${nc.name} finished planting at (${x}, ${y}).`);
+                                targetTile.growth = 0;
+                            }
+                            gridChanged = true;
+                        }
+                        if (validTile(newDesignations, y, x)) { newDesignations[y][x] = null; }
+                        nc.task = 'IDLE'; nc.workTicks = 0; nc.target = null;
+                    }
+                }
+                if (nc.task === 'RESTING') { if (nc.energy >= C.MAX_ENERGY) { nc.energy = C.MAX_ENERGY; nc.task = 'IDLE'; addLog(`${nc.name} is fully rested.`); } else { nc.energy += 10; } }
+                if (nc.task === 'EATING') { nc.hunger = Math.max(0, nc.hunger - C.FOOD_NUTRITION); nc.task = 'IDLE'; addLog(`${nc.name} finished eating.`); }
+                if (nc.task === 'PLAYING') { if (nc.boredom <= 0) { nc.boredom = 0; nc.task = 'IDLE'; addLog(`${nc.name} is no longer bored.`); } else { nc.boredom -= C.FUN_RECOVERY_RATE; } }
+                
+                return nc;
+            });
+            
+            let finalColonists = updatedColonists;
+
+            if (deathsThisTick.length > 0) {
+                deathsThisTick.forEach(death => {
+                    addLog(`${death.colonist.name} has died from ${death.cause}.`, 'event');
+                });
+
+                const deadIds = new Set(deathsThisTick.map(d => d.colonist.id));
+                const deadIndices = new Set(prevColonists.map((c, i) => ({c, i})).filter(p => deadIds.has(p.c.id)).map(p => p.i));
+
+                setColonistLogs(prevLogs => prevLogs.filter((_, i) => !deadIndices.has(i)));
+                
+                finalColonists = updatedColonists
+                    .filter(c => !deadIds.has(c.id))
+                    .map(c => ({
+                        ...c,
+                        happiness: Math.max(0, c.happiness - (C.HAPPINESS_PENALTY_PER_DEATH * deathsThisTick.length))
+                    }));
+
+                if (finalColonists.length === 0) {
+                    addLog("The last colonist has perished. The simulation has failed.", "event");
+                    setIsPlaying(false);
+                }
+            }
+
+            const newTotalMinerals = storedMinerals + mineralsThisTick;
+            const newSoftResets = finalColonists.reduce((sum, c) => sum + (c.softResetCount || 0), 0);
+            const newHardResets = finalColonists.reduce((sum, c) => sum + (c.hardResetCount || 0), 0);
+            setColonyStats({ softResets: newSoftResets, hardResets: newHardResets });
+
+            if (mineralsThisTick !== 0) setStoredMinerals(prev => Math.max(0, prev + mineralsThisTick));
+            if (gemsThisTick !== 0) setStoredGems(prev => Math.max(0, prev + gemsThisTick));
+            if (logsThisTick !== 0) setStoredLogs(prev => Math.max(0, prev + logsThisTick));
+            if (stoneThisTick !== 0) setStoredStone(prev => Math.max(0, prev + stoneThisTick));
+            if (foodThisTick !== 0) setStoredFood(prev => Math.max(0, prev + foodThisTick));
+
+            recordColonistWorkLog(finalColonists, tickCount);
+            
+            if (happinessBoostThisTick && finalColonists.length > 0) {
+                finalColonists = finalColonists.map(c => ({ ...c, happiness: Math.min(C.MAX_HAPPINESS, c.happiness + C.HAPPINESS_BOOST_ON_STORE) }));
+            }
+            let totalHappiness = finalColonists.reduce((sum, c) => sum + c.happiness, 0);
+
+            if (newTotalMinerals >= currentGoal) {
+                const newLevel = milestoneLevel + 1;
+                setMilestoneLevel(newLevel);
+                setCurrentGoal(C.INITIAL_GOAL + newLevel * C.GOAL_INCREMENT);
+                addLog(`MILESTONE REACHED! Next goal: ${C.INITIAL_GOAL + newLevel * C.GOAL_INCREMENT} minerals.`, "event");
+            }
+
+            if (gridChanged) setGrid(newGrid);
+            setDesignations(newDesignations);
+            setAverageHappiness(totalHappiness / (finalColonists.length || 1));
+            if (selectedColonist && !finalColonists.find(c => c.id === selectedColonist.id)) {
+                setSelectedColonist(null);
+            } else if (selectedColonist) {
+                 const updatedSelected = finalColonists.find(c => c.id === selectedColonist.id);
+                 setSelectedColonist(updatedSelected || null);
+            }
+            return finalColonists;
+        });
+    }, [grid, designations, averageHappiness, selectedColonist, storedMinerals, storedGems, storedLogs, storedStone, storedFood, recordColonistWorkLog, tickCount, milestoneLevel, currentGoal, activeEvents, colonists.length, addLog, isNarrating, generateChronicleUpdate, priorityTasks]);
+
+    const generateProceduralGrid = useCallback((currentSeed: string): Grid => {
+        const prng = createPRNG(currentSeed);
+        const noise2D = createNoise2D(prng); const mineralNoise2D = createNoise2D(prng); const gemNoise2D = createNoise2D(prng); const treeNoise2D = createNoise2D(prng);
+        let newGrid: Grid = Array.from({ length: C.GRID_HEIGHT }, (_, y) => Array(C.GRID_WIDTH).fill(null).map((__, x) => ({ x, y, type: TileType.EMPTY, regrowthTicks: 0 })));
+        
+        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) { if (noise2D(x / 20, y / 20) > -0.2) newGrid[y][x].type = TileType.ROCK; }
+        
+        for (let i = 0; i < 4; i++) {
+            let tempGrid: Grid = newGrid.map(row => row.map(cell => ({ ...cell })));
+            for (let y = 1; y < C.GRID_HEIGHT - 1; y++) for (let x = 1; x < C.GRID_WIDTH - 1; x++) {
+                let wallCount = 0;
+                for (let ny = y - 1; ny <= y + 1; ny++) for (let nx = x - 1; nx <= x + 1; nx++) { if (ny === y && nx === x) continue; if (newGrid[ny][nx].type === TileType.ROCK) wallCount++; }
+                if (wallCount > 4) tempGrid[y][x].type = TileType.ROCK; else if (wallCount < 4) tempGrid[y][x].type = TileType.EMPTY;
+            }
+            newGrid = tempGrid;
+        }
+
+        const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
+        for (let y = startY - 6; y <= startY + 6; y++) for (let x = startX - 9; x <= startX + 9; x++) {
+            if (y >= 0 && y < C.GRID_HEIGHT && x >= 0 && x < C.GRID_WIDTH) newGrid[y][x] = { ...newGrid[y][x], type: TileType.EMPTY, regrowthTicks: 0 };
+        }
+        
+        const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
+        for(let y = shelterRect.y0; y <= shelterRect.y1; y++) {
+            for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
+                if(validTile(newGrid, y, x)) newGrid[y][x].type = TileType.WOOD_FLOOR;
+            }
+        }
+
+        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+            if (newGrid[y][x].type === TileType.ROCK) {
+                if (mineralNoise2D(x / 10, y / 10) > 0.4) newGrid[y][x].type = TileType.MINERAL;
+                else if (gemNoise2D(x / 8, y / 8) > 0.8) newGrid[y][x].type = TileType.GEM;
+            } else if (newGrid[y][x].type === TileType.EMPTY) {
+                const inClearZone = (y > startY - 7 && y < startY + 7 && x > startX - 10 && x < startX + 10);
+                if (treeNoise2D(x / 15, y / 15) > 0.5 && !inClearZone) newGrid[y][x].type = TileType.TREE;
+            }
+        }
+
+        for (let i = 0; i < 5; i++) { newGrid[startY + 2][startX - 2 + i].type = TileType.STORAGE; newGrid[startY + 4][startX - 2 + i].type = TileType.BED; }
+        
+        return newGrid;
+    }, []);
+
+    const resetGame = useCallback(async (newSeed?: string) => {
+        setIsGenerating(true);
+        setShowIntro(true);
+        setIsPlaying(false);
+        setImportError("");
+        const seedToUse = newSeed || Date.now().toString().slice(-4);
+        setSeed(seedToUse);
+
+        const storyData = await generateInitialStory();
+        setColonyName(storyData.colonyName);
+        setAsteroidName(storyData.asteroidName);
+        
+        addLog(`Generating new asteroid with seed: ${seedToUse}...`);
+        
+        const newGrid = generateProceduralGrid(seedToUse);
+        const newDesignations: Designations = Array.from({ length: C.GRID_HEIGHT }, () => Array(C.GRID_WIDTH).fill(null));
+        
+        const startX = Math.floor(C.GRID_WIDTH / 2);
+        const startY = Math.floor(C.GRID_HEIGHT / 2);
+        const shelterRect = { x0: startX - 4, y0: startY, x1: startX + 4, y1: startY + 5 };
+        for(let x = shelterRect.x0; x <= shelterRect.x1; x++) {
+            if(validTile(newGrid, shelterRect.y0, x) && isTileDesignatable(newGrid[shelterRect.y0][x].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[shelterRect.y0][x] = DesignationType.BUILD_WOOD_WALL;
+            if(validTile(newGrid, shelterRect.y1, x) && isTileDesignatable(newGrid[shelterRect.y1][x].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[shelterRect.y1][x] = DesignationType.BUILD_WOOD_WALL;
+        }
+        for(let y = shelterRect.y0 + 1; y < shelterRect.y1; y++) {
+            if(validTile(newGrid, y, shelterRect.x0) && isTileDesignatable(newGrid[y][shelterRect.x0].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[y][shelterRect.x0] = DesignationType.BUILD_WOOD_WALL;
+            if(validTile(newGrid, y, shelterRect.x1) && isTileDesignatable(newGrid[y][shelterRect.x1].type, DesignationType.BUILD_WOOD_WALL)) newDesignations[y][shelterRect.x1] = DesignationType.BUILD_WOOD_WALL;
+        }
+        const doorX = startX;
+        const doorY = shelterRect.y1;
+        if(validTile(newGrid, doorY, doorX)) newDesignations[doorY][doorX] = DesignationType.BUILD_DOOR;
+
+        const startingPos = { x: startX, y: startY };
+        const newColonists: Colonist[] = storyData.colonists.map((c, i) => ({
+            id: `Colonist-${i + 1}`,
+            name: c.name,
+            backstory: c.backstory,
+            x: startingPos.x + i,
+            y: startY + 1,
+            task: 'IDLE',
+            target: null,
+            path: [],
+            workTicks: 0,
+            carrying: null,
+            energy: C.MAX_ENERGY,
+            happiness: C.MAX_HAPPINESS,
+            patience: C.COLONIST_PATIENCE,
+            hunger: 0,
+            boredom: 0,
+            roles: ['COOK', 'BUILDER', 'MINER', 'HAULER'],
+            stuckTicks: 0,
+            lastPosition: { x: startingPos.x + i, y: startY + 1 },
+            criticallyLowEnergyTicks: 0,
+            criticallyLowHungerTicks: 0,
+            softResetCount: 0,
+            hardResetCount: 0,
+        }));
+        setGrid(newGrid);
+        setDesignations(newDesignations);
+        setColonists(newColonists);
+        setStoredMinerals(0); setStoredGems(0); setStoredLogs(15); setStoredStone(0); setStoredFood(C.INITIAL_FOOD); setSelectedColonist(null); setAverageHappiness(C.MAX_HAPPINESS); setWorkEfficiency(100);
+        setMilestoneLevel(0); setCurrentGoal(C.INITIAL_GOAL);
+        setActiveEvents([]);
+        setEventPopup(null);
+        setGameLog([]); setGameTime(0);
+        setTickCount(0); setCurrentDay(1); setCurrentHour(6);
+        setChronology([{ timestamp: 'Day 1, 06:00', message: storyData.firstEntry }]);
+        setColonistLogs(Array.from({ length: newColonists.length }, () => Array(C.DAY_LENGTH_TICKS).fill(null)));
+        addLog(`Simulation started. Welcome to ${storyData.colonyName}.`);
+        addLog('A small supply cache was found, providing 15 logs.');
+        setApiFailed(false);
+        setIsGenerating(false);
+        setColonyStats({ softResets: 0, hardResets: 0 });
+        setSimulationSettings({ allowNewColonists: true });
+    }, [generateProceduralGrid, addLog]);
+    
+    const closeEventPopup = useCallback(async () => {
+        const event = eventPopup;
+        if (!event) {
+            setIsPlaying(true);
+            return;
+        }
+        
+        setEventPopup(null);
+    
+        if (event.id === 'NEW_COLONIST') {
+            try {
+                // To prevent a race condition with rapid clicks
+                if (colonists.length >= C.INITIAL_COLONIST_COUNT + 10) { // Limit total colonists
+                    addLog("Cannot support any more colonists at this time.", "event");
+                    setIsPlaying(true);
+                    return;
+                }
+                const currentColonistCount = colonists.length;
+
+                const storyData = await generateInitialStory();
+                const newColonistData = storyData.colonists[0];
+                const newId = `Colonist-${currentColonistCount + 1}`;
+                const startX = Math.floor(C.GRID_WIDTH / 2), startY = Math.floor(C.GRID_HEIGHT / 2);
+                const newColonist: Colonist = {id: newId, name: newColonistData.name, backstory: newColonistData.backstory, x: startX, y: startY, task: 'IDLE', target: null, path: [], workTicks: 0, carrying: null, energy: C.MAX_ENERGY, happiness: C.MAX_HAPPINESS, patience: C.COLONIST_PATIENCE, hunger: 0, boredom: 0, roles: ['COOK', 'BUILDER', 'MINER', 'HAULER'], stuckTicks: 0, lastPosition: {x: startX, y: startY}, criticallyLowEnergyTicks: 0, criticallyLowHungerTicks: 0, softResetCount: 0, hardResetCount: 0};
+                
+                setColonists(prev => {
+                    if (prev.length === currentColonistCount) { // Only add if no other instance has added one yet
+                        return [...prev, newColonist];
+                    }
+                    return prev;
+                });
+                
+                setColonistLogs(prev => {
+                     if (prev.length === currentColonistCount) {
+                        return [...prev, Array(C.DAY_LENGTH_TICKS).fill(null)];
+                     }
+                     return prev;
+                });
+            } catch (error) {
+                 console.error("Failed to generate new colonist, using fallback.", error);
+            }
+        } else if (event.id === 'TRAGIC_ACCIDENT') {
+            setColonists(prevColonists => {
+                if (prevColonists.length <= 1) {
+                    addLog("A tragic accident was narrowly avoided.", "event");
+                    return prevColonists;
+                }
+                const victimIndex = Math.floor(Math.random() * prevColonists.length);
+                const victim = prevColonists[victimIndex];
+                addLog(`${victim.name} has died in a tragic accident.`, 'event');
+                setColonistLogs(prevLogs => prevLogs.filter((_, i) => i !== victimIndex));
+                return prevColonists.filter((_, i) => i !== victimIndex);
+            });
+        } else {
+             setActiveEvents(prev => [...prev.filter(e => e.id !== event.id), event]);
+        }
+        
+        setIsPlaying(true);
+    }, [eventPopup, colonists.length, addLog]);
+
+    useEffect(() => { resetGame(seed); // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (!isPlaying || !grid || showIntro || eventPopup) return;
+        const intervalId = setInterval(gameTick, C.GAME_TICK_MS / gameSpeed);
+        return () => clearInterval(intervalId);
+    }, [isPlaying, grid, gameTick, showIntro, eventPopup, gameSpeed]);
+
+    useEffect(() => {
+        if (isPlaying && !isEventGenerationRunning && tickCount > 0 && (tickCount % C.DAY_LENGTH_TICKS) === 1) {
+            setIsEventGenerationRunning(true);
+            generateDailyEvent().then(event => {
+                if (event) {
+                    addLog(event.message, 'event');
+                    setEventPopup(event);
+                    setIsPlaying(false);
+    
+                    if (event.id === 'METEOR_SHOWER') {
+                        const impactX = Math.floor(Math.random() * C.GRID_WIDTH);
+                        const impactY = Math.floor(Math.random() * C.GRID_HEIGHT);
+                        const radius = 3 + Math.floor(Math.random() * 3);
+                        setGrid(currentGrid => {
+                            if (!currentGrid) return currentGrid;
+                            const newGrid = currentGrid.map(row => row.map(cell => ({ ...cell })));
+                            let changed = false;
+                            for (let y = impactY - radius; y <= impactY + radius; y++) {
+                                for (let x = impactX - radius; x <= impactX + radius; x++) {
+                                    if (validTile(newGrid, y, x) && newGrid[y][x].type === TileType.ROCK && distance({ x, y }, { x: impactX, y: impactY }) <= radius) {
+                                        if (Math.random() < 0.1) newGrid[y][x].type = TileType.GEM;
+                                        else if (Math.random() < 0.5) newGrid[y][x].type = TileType.MINERAL;
+                                        changed = true;
+                                    }
+                                }
+                            }
+                            return changed ? newGrid : currentGrid;
+                        });
+                    }
+                }
+                setIsEventGenerationRunning(false);
+            });
+        }
+    }, [tickCount, isPlaying, generateDailyEvent, isEventGenerationRunning, addLog]);
+
+    useEffect(() => {
+        if (!colonistLogs || colonistLogs.length === 0 || !colonistLogs[0] || colonistLogs[0].length === 0) return;
+        let totalProductiveTicks = 0;
+        let totalTicksConsidered = 0;
+        colonistLogs.forEach(log => {
+            if (!log) return;
+            const relevantTicks = log.slice(0, Math.min(tickCount, log.length)).filter(Boolean);
+            let productiveTicks = 0;
+            let nonRestingTicks = 0;
+            relevantTicks.forEach(entry => {
+                if (entry && entry.task !== 'RESTING' && entry.task !== 'MOVING_TO_REST') {
+                    nonRestingTicks++;
+                    if (entry.task === 'MINING' || entry.task === 'BUILDING' || entry.task === 'CHOPPING' || entry.task.includes('HAUL') || entry.task.includes('STORAGE')) {
+                        productiveTicks++;
+                    }
+                }
+            });
+            if(nonRestingTicks > 0) { totalProductiveTicks += productiveTicks; totalTicksConsidered += nonRestingTicks; }
+        });
+        const efficiency = totalTicksConsidered > 0 ? (totalProductiveTicks / totalTicksConsidered) * 100 : 0;
+        setWorkEfficiency(efficiency);
+    }, [colonistLogs, tickCount]);
+
+    useEffect(() => {
+        if (!grid || !canvasRef.current) return;
+        const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        ctx.fillStyle = isDay ? C.PALETTE.BACKGROUND : C.PALETTE.NIGHT;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw background pattern
+        ctx.globalAlpha = 0.5;
+        ctx.font = "10px monospace";
+        const patternColors = ['#a855f7', '#eab308']; // purple, yellow
+        const patternPrng = createPRNG(seed + "_pattern");
+
+        for (let y = 0; y < C.GRID_HEIGHT; y++) {
+            for (let x = 0; x < C.GRID_WIDTH; x++) {
+                if (x % 4 === 1 && y % 4 === 1) {
+                    const drawX = x * C.TILE_SIZE + C.TILE_SIZE / 2;
+                    const drawY = y * C.TILE_SIZE + C.TILE_SIZE / 2;
+                    ctx.fillStyle = patternColors[Math.floor(patternPrng() * patternColors.length)];
+                    ctx.fillText('+', drawX, drawY);
+                }
+            }
+        }
+        ctx.globalAlpha = 1.0; // Reset alpha
+
+        ctx.font = `${C.TILE_SIZE * 0.9}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        
+        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+            const tile = grid[y]?.[x];
+            if (tile) {
+                const drawX = x * C.TILE_SIZE + C.TILE_SIZE / 2, drawY = y * C.TILE_SIZE + C.TILE_SIZE / 2;
+                if(tile.type === TileType.WOOD_FLOOR) { ctx.fillStyle = C.PALETTE.WOOD_FLOOR; ctx.fillText(C.CHARS.WOOD_FLOOR, drawX, drawY); }
+                else if (tile.type === TileType.STONE_FLOOR) { ctx.fillStyle = C.PALETTE.STONE_FLOOR; ctx.fillText(C.CHARS.STONE_FLOOR, drawX, drawY); }
+                else if (tile.type === TileType.BED || tile.type === TileType.STORAGE || tile.type === TileType.HYDROPONICS_TRAY || tile.type === TileType.ARCADE_MACHINE) {
+                    ctx.fillStyle = C.PALETTE.WOOD_FLOOR; ctx.fillText(C.CHARS.WOOD_FLOOR, drawX, drawY);
+                }
+            }
+        }
+        
+        for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+            const tile = grid[y]?.[x];
+            if (tile) {
+                const drawX = x * C.TILE_SIZE + C.TILE_SIZE / 2, drawY = y * C.TILE_SIZE + C.TILE_SIZE / 2;
+                let charToDraw = null; let color = '';
+                switch (tile.type) {
+                    case TileType.ROCK: color = isDay ? C.PALETTE.ROCK : "#253042"; charToDraw = C.CHARS.ROCK; break;
+                    case TileType.MINERAL: color = isDay ? C.PALETTE.MINERAL : "#b0ad3e"; charToDraw = C.CHARS.MINERAL; break;
+                    case TileType.GEM: color = isDay ? C.PALETTE.GEM : "#7c3aed"; charToDraw = C.CHARS.GEM; break;
+                    case TileType.STORAGE: color = C.PALETTE.STORAGE; charToDraw = C.CHARS.STORAGE; break;
+                    case TileType.DROPPED_MINERAL: color = C.PALETTE.DROPPED_MINERAL; charToDraw = C.CHARS.DROPPED_MINERAL; break;
+                    case TileType.DROPPED_GEM: color = C.PALETTE.DROPPED_GEM; charToDraw = C.CHARS.DROPPED_GEM; break;
+                    case TileType.DROPPED_STONE: color = C.PALETTE.DROPPED_STONE; charToDraw = C.CHARS.DROPPED_STONE; break;
+                    case TileType.BED: color = C.PALETTE.BED; charToDraw = C.CHARS.BED; break;
+                    case TileType.TREE: color = isDay ? C.PALETTE.TREE : "#166534"; charToDraw = C.CHARS.TREE; break;
+                    case TileType.DROPPED_LOG: color = C.PALETTE.DROPPED_LOG; charToDraw = C.CHARS.DROPPED_LOG; break;
+                    case TileType.WOOD_WALL: color = C.PALETTE.WOOD_WALL; charToDraw = C.CHARS.WOOD_WALL; break;
+                    case TileType.STONE_WALL: color = C.PALETTE.STONE_WALL; charToDraw = C.CHARS.STONE_WALL; break;
+                    case TileType.DOOR: color = C.PALETTE.DOOR; charToDraw = C.CHARS.DOOR; break;
+                    case TileType.SAPLING: color = C.PALETTE.SAPLING; charToDraw = C.CHARS.SAPLING; break;
+                    case TileType.HYDROPONICS_TRAY: color = C.PALETTE.HYDROPONICS; charToDraw = C.CHARS.HYDROPONICS; break;
+                    case TileType.ARCADE_MACHINE: color = C.PALETTE.ARCADE; charToDraw = C.CHARS.ARCADE; break;
+                    case TileType.DROPPED_FOOD: color = C.PALETTE.DROPPED_FOOD; charToDraw = C.CHARS.DROPPED_FOOD; break;
+                }
+                if (charToDraw) { ctx.fillStyle = color; ctx.fillText(charToDraw, drawX, drawY); }
+            }
+        }
+        if (designations) for (let y = 0; y < C.GRID_HEIGHT; y++) for (let x = 0; x < C.GRID_WIDTH; x++) {
+            const des = designations[y]?.[x];
+            if (des) {
+                if (des === DesignationType.MINE || des === DesignationType.CHOP || des === DesignationType.HARVEST) ctx.fillStyle = C.PALETTE.DESIGNATION_MINE;
+                else if (des.startsWith('BUILD') || des.startsWith('UPGRADE')) ctx.fillStyle = C.PALETTE.DESIGNATION_BUILD;
+                ctx.fillRect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE);
+            }
+        }
+
+        colonists.forEach(c => {
+            const drawX = c.x * C.TILE_SIZE + C.TILE_SIZE / 2, drawY = c.y * C.TILE_SIZE + C.TILE_SIZE / 2;
+            const isCritical = c.criticallyLowHungerTicks > 0 || c.criticallyLowEnergyTicks > 0;
+            const flash = isCritical && tickCount % 10 < 5;
+
+            ctx.fillStyle = flash ? C.PALETTE.CRITICAL_NEED_FLASH : (selectedColonist && c.id === selectedColonist.id) ? C.PALETTE.COLONIST_SELECTED : C.PALETTE.COLONIST;
+            
+            let char = C.CHARS.COLONIST;
+            if(c.task === 'MINING' || c.task === 'BUILDING' || c.task === 'CHOPPING') char = C.CHARS.COLONIST_WORKING; if(c.carrying) char = C.CHARS.COLONIST_HAULING; if(c.task === 'RESTING') char = C.CHARS.COLONIST_RESTING; if(c.task === 'EATING') char = C.CHARS.COLONIST_EATING; if(c.task === 'PLAYING') char = C.CHARS.COLONIST_PLAYING;
+            ctx.fillText(char, drawX, drawY);
+        });
+    }, [grid, colonists, selectedColonist, designations, isDay, seed, tickCount]);
+
+    const getGridCoordsFromEvent = (event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent): Point | null => {
+        const canvas = canvasRef.current; if (!canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        const clientX = 'touches' in event ? (event as TouchEvent).touches[0].clientX : (event as MouseEvent).clientX;
+        const clientY = 'touches' in event ? (event as TouchEvent).touches[0].clientY : (event as MouseEvent).clientY;
+        const x = clientX - rect.left, y = clientY - rect.top;
+        return { x: Math.floor(x / C.TILE_SIZE), y: Math.floor(y / C.TILE_SIZE) };
+    };
+
+    const handleCanvasMouseDown = (event: React.MouseEvent) => {
+        if (!grid || !designations) return;
+        const coords = getGridCoordsFromEvent(event); if (!coords) return;
+        if (interactionMode === 'INSPECT') {
+            const clickedColonist = colonists.find(c => c.x === coords.x && c.y === coords.y);
+            setSelectedColonist(prev => (prev && clickedColonist && prev.id === clickedColonist.id) ? null : clickedColonist || null);
+        } else if (interactionMode === 'DESIGNATE' && designationType) {
+            isDesignating.current = true;
+            designationStart.current = coords;
+            designationDragStart.current = designations.map(r => [...r]);
+            setDesignations(prev => {
+                if (!prev) return prev;
+                const newD = prev.map(r => [...r]);
+                if (!validTile(grid, coords.y, coords.x)) return newD;
+                
+                let desType = designationType;
+                 if(designationType === DesignationType.HARVEST) {
+                    const tileType = grid[coords.y][coords.x].type;
+                    if(tileType === TileType.TREE) desType = DesignationType.CHOP;
+                    else desType = DesignationType.MINE;
+                }
+                
+                if (isTileDesignatable(grid[coords.y][coords.x].type, desType))
+                    newD[coords.y][coords.x] = newD[coords.y][coords.x] === desType ? null : desType;
+                return newD;
+            });
+        }
+    };
+
+    const handleCanvasMouseMove = (event: React.MouseEvent) => {
+        if (!grid) return;
+        const coords = getGridCoordsFromEvent(event);
+
+        if (interactionMode === 'INSPECT' && coords) {
+            const tileAtCoords = grid[coords.y]?.[coords.x];
+            setHoveredTile(tileAtCoords || null);
+        } else {
+            setHoveredTile(null);
+        }
+        
+        if (interactionMode === 'DESIGNATE' && isDesignating.current && designationStart.current && coords) {
+            setDesignations(prev => {
+                if (!prev || !designationDragStart.current || !designationType) return prev;
+                const newD = designationDragStart.current.map(r => [...r]);
+                const start = designationStart.current as Point;
+                const end = coords;
+                const x0 = Math.min(start.x, end.x), x1 = Math.max(start.x, end.x);
+                const y0 = Math.min(start.y, end.y), y1 = Math.max(start.y, end.y);
+
+                const isHollow = designationType === DesignationType.BUILD_WOOD_WALL || designationType === DesignationType.BUILD_DOOR || designationType === DesignationType.BUILD_STONE_WALL;
+
+                for (let y = y0; y <= y1; y++) {
+                    for (let x = x0; x <= x1; x++) {
+                        if (isHollow && (y > y0 && y < y1 && x > x0 && x < x1)) continue;
+
+                        let desType = designationType;
+                        if (designationType === DesignationType.HARVEST) {
+                             if(validTile(grid, y, x)){
+                                const tileType = grid[y][x].type;
+                                if(tileType === TileType.TREE) desType = DesignationType.CHOP;
+                                else desType = DesignationType.MINE;
+                             } else { continue; }
+                        }
+                        if (desType && validTile(grid, y, x) && isTileDesignatable(grid[y][x].type, desType))
+                            newD[y][x] = desType;
+                    }
+                }
+                return newD;
+            });
+        }
+    };
+
+    const handleCanvasMouseUp = () => { isDesignating.current = false; designationStart.current = null; designationDragStart.current = null; };
+    const handleCanvasMouseLeave = () => {
+        setHoveredTile(null);
+        handleCanvasMouseUp();
+    };
+    const handleSetDesignation = (type: DesignationType) => { 
+        setDesignationType(type); 
+        setInteractionMode('DESIGNATE');
+        if(type === DesignationType.HARVEST) setCursor('pickaxe');
+        else setCursor('default');
+    };
+    const handleSetInspect = () => {
+        setInteractionMode('INSPECT');
+        setDesignationType(null);
+        setCursor('default');
+    }
+    
+    const handleUnstuck = () => {
+        if (!grid) return;
+
+        if (unstuckTimeoutRef.current) {
+            clearTimeout(unstuckTimeoutRef.current);
+        }
+
+        const newPressCount = unstuckPressCount + 1;
+        setUnstuckPressCount(newPressCount);
+
+        if (newPressCount === 1) {
+            const newGrid = grid.map(r => r.map(c => ({...c})));
+            let gridChanged = false;
+        
+            const updatedColonists = colonists.map(c => {
+                if (c.carrying && validTile(newGrid, c.y, c.x) && [TileType.EMPTY, TileType.WOOD_FLOOR, TileType.STONE_FLOOR, TileType.DOOR, TileType.SAPLING].includes(newGrid[c.y][c.x].type)) {
+                    let dropType: TileType | null = null;
+                    if (c.carrying === TileType.MINERAL) dropType = TileType.DROPPED_MINERAL;
+                    else if (c.carrying === TileType.GEM) dropType = TileType.DROPPED_GEM;
+                    else if (c.carrying === 'LOGS') dropType = TileType.DROPPED_LOG;
+                    else if (c.carrying === 'FOOD') dropType = TileType.DROPPED_FOOD;
+                    else if (c.carrying === 'STONE') dropType = TileType.DROPPED_STONE;
+        
+                    if (dropType) {
+                         newGrid[c.y][c.x].type = dropType;
+                         gridChanged = true;
+                    }
+                }
+                return {
+                    ...c,
+                    task: 'IDLE',
+                    target: null,
+                    path: [],
+                    workTicks: 0,
+                    patience: C.COLONIST_PATIENCE,
+                    carrying: null,
+                };
+            });
+            
+            setColonists(updatedColonists);
+            if(gridChanged) {
+                setGrid(newGrid);
+            }
+            addLog('All colonists soft-reset. Press again to teleport to safety.', 'event');
+
+        } else if (newPressCount >= 2) {
+            const startX = Math.floor(C.GRID_WIDTH / 2);
+            const startY = Math.floor(C.GRID_HEIGHT / 2);
+    
+            const updatedColonists = colonists.map((c, i) => ({
+                ...c,
+                x: startX + i,
+                y: startY + 1,
+                task: 'IDLE',
+                target: null,
+                path: [],
+                workTicks: 0,
+                patience: C.COLONIST_PATIENCE,
+                carrying: null,
+                energy: C.MAX_ENERGY,
+                hunger: 0,
+                boredom: 0,
+                stuckTicks: 0,
+            }));
+            
+            setColonists(updatedColonists);
+            addLog('Emergency reset: Colonists teleported and needs replenished.', 'event');
+            setUnstuckPressCount(0);
+        }
+        
+        unstuckTimeoutRef.current = setTimeout(() => {
+            setUnstuckPressCount(0);
+        }, 2000);
+    };
+
+    const handleExportJson = () => {
+        const gameState = {
+            version: C.GAME_VERSION,
+            seed,
+            grid,
+            designations,
+            colonists,
+            storedMinerals,
+            storedGems,
+            storedLogs,
+            storedStone,
+            storedFood,
+            milestoneLevel,
+            currentGoal,
+            gameTime,
+            tickCount,
+            currentDay,
+            currentHour,
+            activeEvents,
+            gameLog,
+            colonyName,
+            asteroidName,
+            chronology,
+            colonistLogs,
+            apiFailed,
+            priorityTasks,
+            colonyStats,
+            simulationSettings,
+        };
+        const jsonString = JSON.stringify(gameState, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${colonyName.replace(/\s/g, '_')}_Day${currentDay}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        addLog("Game state exported.");
+        setShowSettings(false);
+    };
+
+    const handleImportJson = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') throw new Error("Invalid file content");
+                const loadedState = JSON.parse(text);
+
+                if (!loadedState.grid || !loadedState.colonists || !loadedState.version) {
+                    throw new Error("Invalid save file format.");
+                }
+                if (loadedState.version !== C.GAME_VERSION) {
+                    throw new Error(`Incompatible save version. Expected ${C.GAME_VERSION}, got ${loadedState.version}.`);
+                }
+
+                const loadedColonists = loadedState.colonists.map((c: Colonist) => ({
+                    ...c,
+                    roles: c.roles || ['COOK', 'BUILDER', 'MINER', 'HAULER'],
+                    stuckTicks: c.stuckTicks || 0,
+                    lastPosition: c.lastPosition || { x: c.x, y: c.y },
+                    criticallyLowEnergyTicks: c.criticallyLowEnergyTicks || 0,
+                    criticallyLowHungerTicks: c.criticallyLowHungerTicks || 0,
+                    softResetCount: c.softResetCount || 0,
+                    hardResetCount: c.hardResetCount || 0,
+                }));
+
+                setSeed(loadedState.seed);
+                setGrid(loadedState.grid);
+                setDesignations(loadedState.designations);
+                setColonists(loadedColonists);
+                setStoredMinerals(loadedState.storedMinerals);
+                setStoredGems(loadedState.storedGems);
+                setStoredLogs(loadedState.storedLogs);
+                setStoredStone(loadedState.storedStone || 0);
+                setStoredFood(loadedState.storedFood);
+                setMilestoneLevel(loadedState.milestoneLevel);
+                setCurrentGoal(loadedState.currentGoal);
+                setGameTime(loadedState.gameTime);
+                setTickCount(loadedState.tickCount);
+                setCurrentDay(loadedState.currentDay);
+                setCurrentHour(loadedState.currentHour);
+                setActiveEvents(loadedState.activeEvents || []);
+                setGameLog(loadedState.gameLog || []);
+                setColonyName(loadedState.colonyName);
+                setAsteroidName(loadedState.asteroidName);
+                setChronology(loadedState.chronology);
+                setColonistLogs(loadedState.colonistLogs);
+                setApiFailed(loadedState.apiFailed || false);
+                setPriorityTasks(loadedState.priorityTasks || []);
+                setColonyStats(loadedState.colonyStats || { softResets: 0, hardResets: 0 });
+                setSimulationSettings(loadedState.simulationSettings || { allowNewColonists: true });
+
+                setSelectedColonist(null);
+                setEventPopup(null);
+                setIsPlaying(false);
+                setShowIntro(false);
+                setImportError("Import successful!");
+                addLog("Game state imported successfully.");
+                setShowSettings(false);
+            } catch (error) {
+                console.error("Import failed:", error);
+                const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+                setImportError(`Import failed: ${errorMessage}`);
+                addLog(`Failed to import save file: ${errorMessage}`, 'event');
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (unstuckTimeoutRef.current) {
+                clearTimeout(unstuckTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    // Sync designations with priority tasks
+    useEffect(() => {
+        if (!designations) return;
+        const newTasks: PriorityTask[] = [];
+        for (let y = 0; y < C.GRID_HEIGHT; y++) {
+            for (let x = 0; x < C.GRID_WIDTH; x++) {
+                const des = designations[y][x];
+                if (des) {
+                    newTasks.push({ id: `${x}-${y}`, type: des, x, y });
+                }
+            }
+        }
+        
+        setPriorityTasks(prevTasks => {
+            const existingTasksMap = new Map(prevTasks.map(t => [t.id, t]));
+            const newTasksToAdd: PriorityTask[] = [];
+            
+            for(const task of newTasks) {
+                if(!existingTasksMap.has(task.id)) {
+                    newTasksToAdd.push(task);
+                }
+            }
+    
+            const newPriorityList = newTasks.filter(task => prevTasks.some(pt => pt.id === task.id));
+            const currentTaskIds = new Set(newTasks.map(t => t.id));
+            const filteredOldTasks = prevTasks.filter(pt => currentTaskIds.has(pt.id));
+
+            return [...newTasksToAdd, ...filteredOldTasks];
+        });
+
+    }, [designations]);
+
+    const handleUpdateColonistRoles = (colonistId: string, newRoles: ColonistRole[]) => {
+        setColonists(prev => prev.map(c => c.id === colonistId ? { ...c, roles: newRoles } : c));
+    };
+
+    const lowFoodAlert = storedFood < colonists.length * 3;
+    const starvationAlert = colonists.some(c => c.criticallyLowHungerTicks > 0);
+
+    return (
+        <div className="bg-gray-900 h-screen flex flex-col text-white overflow-hidden">
+            {showIntro && <IntroModal onStart={() => {setShowIntro(false); setIsPlaying(true);}} isGenerating={isGenerating} colonyName={colonyName} asteroidName={asteroidName} colonists={colonists} />}
+            {showPrioritiesModal && <PriorityTasksModal tasks={priorityTasks} onReorder={setPriorityTasks} onClose={() => setShowPrioritiesModal(false)} />}
+            {showDirectorModal && <DirectorModal settings={simulationSettings} onUpdateSettings={setSimulationSettings} onClose={() => setShowDirectorModal(false)} />}
+            
+            <TopBar 
+                storedMinerals={storedMinerals} storedGems={storedGems} storedLogs={storedLogs} 
+                storedFood={storedFood} storedStone={storedStone} currentDay={currentDay} currentHour={currentHour} 
+                isDay={isDay} colonists={colonists} onSelectColonist={setSelectedColonist}
+                selectedColonistId={selectedColonist?.id} gameSpeed={gameSpeed} onSetGameSpeed={setGameSpeed}
+                isPlaying={isPlaying} onTogglePlay={() => setIsPlaying(p => !p)}
+            />
+            
+            <div className="flex flex-row flex-grow overflow-auto relative">
+                <LeftSidebar
+                    onSetDesignation={handleSetDesignation}
+                    onSetInspect={handleSetInspect}
+                    onRegenerate={() => resetGame(seed)}
+                    seed={seed}
+                    onSeedChange={(e) => setSeed(e.target.value)}
+                    onUnstuck={handleUnstuck}
+                    onToggleSettings={() => setShowSettings(s => !s)}
+                    onTogglePriorities={() => setShowPrioritiesModal(p => !p)}
+                    onToggleDirector={() => setShowDirectorModal(p => !p)}
+                    activeDesignation={interactionMode === 'DESIGNATE' ? designationType : null}
+                />
+                {showSettings && <div className="absolute left-[350px] bottom-2 z-30"><SettingsModal onExport={handleExportJson} onImport={handleImportJson} importError={importError} setImportError={setImportError} /></div>}
+              
+              <main className="flex-grow flex items-center justify-center bg-black border-y-2 border-l-2 border-gray-700 relative">
+                <ColonyAlertsPanel lowFood={lowFoodAlert} starvationImminent={starvationAlert} />
+                <div className="relative">
+                    <canvas ref={canvasRef} style={{ cursor: cursor === 'pickaxe' ? `url(${C.PICKAXE_CURSOR_SVG}), auto` : 'default' }} width={C.GRID_WIDTH * C.TILE_SIZE} height={C.GRID_HEIGHT * C.TILE_SIZE} onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onMouseLeave={handleCanvasMouseLeave} />
+                    {eventPopup && <EventModal event={eventPopup} onContinue={closeEventPopup} />}
+                </div>
+              </main>
+              
+              <aside className="w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col gap-2 p-2 border-y-2 border-r-2 border-gray-700 bg-gray-900 overflow-y-auto">
+                <CombinedInspectorPanel colonist={selectedColonist} tile={hoveredTile} onUpdateColonistRoles={handleUpdateColonistRoles} />
+                <ColonistWorkLogPanel colonists={colonists} logs={colonistLogs} tickCount={tickCount} onSelect={setSelectedColonist} selectedId={selectedColonist?.id}/>
+                <div className="flex-grow flex flex-col gap-2 overflow-hidden">
+                    <ColonyChronologyPanel chronology={chronology} colonyName={colonyName} asteroidName={asteroidName} isExpanded={expandedPanel === 'chronology'} onToggleExpand={() => setExpandedPanel(p => p === 'chronology' ? 'none' : 'chronology')} />
+                    <GameLogPanel log={gameLog} isExpanded={expandedPanel === 'log'} onToggleExpand={() => setExpandedPanel(p => p === 'log' ? 'none' : 'log')} />
+                </div>
+              </aside>
+            </div>
+             <BottomBar
+                milestoneLevel={milestoneLevel}
+                currentGoal={currentGoal}
+                storedMinerals={storedMinerals}
+                averageHappiness={averageHappiness}
+                workEfficiency={workEfficiency}
+                totalSoftResets={colonyStats.softResets}
+                totalHardResets={colonyStats.hardResets}
+            />
+        </div>
+    );
+}
+</file>
+<file path="constants.ts">
+
+
+export const GAME_VERSION = 'v0.10.2-alpha';
+export const GRID_WIDTH = 94;
+export const GRID_HEIGHT = 56;
+export const TILE_SIZE = 16;
+export const INITIAL_COLONIST_COUNT = 3;
+export const GAME_TICK_MS = 100;
+export const MINING_DURATION = 15;
+export const CHOPPING_DURATION = 12;
+export const BUILD_DURATION = 20;
+export const MAX_ENERGY = 1000;
+export const LOW_ENERGY_THRESHOLD = 250;
+export const MAX_HAPPINESS = 100;
+export const HAPPINESS_DECAY_rate = 0.05;
+export const HAPPINESS_BOOST_ON_STORE = 2;
+export const LOW_MORALE_THRESHOLD = 30;
+export const INITIAL_GOAL = 25;
+export const GOAL_INCREMENT = 50;
+export const DAY_LENGTH_TICKS = 1000;
+export const HOURS_PER_DAY = 24;
+export const TICKS_PER_HOUR = Math.round(DAY_LENGTH_TICKS / HOURS_PER_DAY);
+export const WALL_COST = 1; // Logs
+export const DOOR_COST = 1; // Logs
+export const FLOOR_COST = 1; // Logs
+export const BED_COST = 3; // Logs
+export const STORAGE_COST = 2; // Logs
+export const HYDROPONICS_COST = { logs: 2, stone: 2, minerals: 1 };
+export const ARCADE_COST = { logs: 4, stone: 4, minerals: 6, gems: 2 };
+export const STONE_WALL_COST = 1; // Stone
+export const STONE_FLOOR_COST = 1; // Stone
+export const PLANTING_DURATION = 10;
+export const HARVESTING_DURATION = 8;
+export const CROP_GROWTH_DURATION = 800;
+export const FOOD_YIELD_PER_HARVEST = 5;
+export const TREE_REGROWTH_CHANCE = 0.0001;
+export const SAPLING_TO_TREE_TICKS = 2000;
+export const DAILY_EVENT_CHANCE = 0.4;
+export const COLONIST_PATIENCE = 5;
+export const MAX_HUNGER = 1000;
+export const HUNGER_INCREASE_RATE = 0.5;
+export const LOW_HUNGER_THRESHOLD = 300;
+export const URGENT_HUNGER_THRESHOLD = 800;
+export const FOOD_NUTRITION = 500;
+export const MAX_BOREDOM = 1000;
+export const BOREDOM_INCREASE_RATE = 0.4;
+export const HIGH_BOREDOM_THRESHOLD = 700;
+export const FUN_RECOVERY_RATE = 15;
+export const AUTO_UNSTUCK_SOFT_TICKS = 25;
+export const AUTO_UNSTUCK_MEDIUM_TICKS = 35;
+export const AUTO_UNSTUCK_HARD_TICKS = 40;
+export const CRITICAL_ENERGY_THRESHOLD = 50;
+export const CRITICAL_HUNGER_THRESHOLD = 950;
+export const TICKS_TO_DEATH = 300; // 30 seconds
+export const HAPPINESS_PENALTY_PER_DEATH = 20;
+export const INITIAL_FOOD = 25;
+
+export const PALETTE = {
+    BACKGROUND: '#1a1a2e', NIGHT: '#11141f', ROCK: '#6b7280', MINERAL: '#facc15', GEM: '#9333ea', COLONIST: '#ffffff',
+    COLONIST_SELECTED: '#67e8f9', STORAGE: '#3b82f6', DROPPED_MINERAL: '#fde047', DROPPED_GEM: '#c084fc',
+    BED: '#be123c', 
+    WOOD_FLOOR: '#785549',
+    STONE_FLOOR: '#4a5568',
+    DESIGNATION_MINE: 'rgba(255, 100, 100, 0.4)',
+    DESIGNATION_BUILD: 'rgba(100, 255, 100, 0.4)', TREE: '#22c55e', DROPPED_LOG: '#854d0e', 
+    WOOD_WALL: '#a16207',
+    STONE_WALL: '#a1a1aa',
+    DOOR: '#f59e0b', SAPLING: '#65a30d',
+    HYDROPONICS: '#059669', ARCADE: '#db2777', DROPPED_FOOD: '#fca5a5', DROPPED_STONE: '#9ca3af',
+    CRITICAL_NEED_FLASH: '#ef4444',
+};
+
+export const CHARS = {
+    ROCK: '#', MINERAL: '*', GEM: '♦', COLONIST: '@', COLONIST_WORKING: 'X', COLONIST_HAULING: 'o',
+    COLONIST_RESTING: 'z', COLONIST_EATING: 'E', COLONIST_PLAYING: 'P',
+    DROPPED_MINERAL: '.', DROPPED_GEM: '◦', STORAGE: 'S', BED: 'b',
+    WOOD_FLOOR: '·',
+    STONE_FLOOR: '·',
+    TREE: 'T',
+    WOOD_WALL: '■',
+    STONE_WALL: '▓',
+    DROPPED_LOG: '=', DOOR: '+', SAPLING: ',',
+    HYDROPONICS: 'h', ARCADE: 'A', DROPPED_FOOD: 'f', DROPPED_STONE: '~',
+};
+
+export const COLONIST_LOG_COLORS = [ "bg-cyan-400","bg-green-400","bg-pink-400", "bg-yellow-300","bg-purple-400","bg-red-400","bg-blue-400","bg-orange-400" ];
+
+export const PICKAXE_CURSOR_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJtMyAzIDggOC03IDcgNS01IDgtOCIvPjxwYXRoIGQ9Im0xNCAxMCA0LTIgMi00LTYgNCIvPjwvc3ZnPg==";
+</file>
+<file path="gemini.md">
+# Project Asteroid Gemini Prompt
+
+## Prompt
+
+Act as a world-class senior frontend engineer with deep expertise in React, TypeScript, and UI/UX design. Your task is to build a colony simulation game called "Project Asteroid" from scratch. The game should be a single-page application built with React and TypeScript.
+
+### Core Gameplay Mechanics:
+
+1.  **Game World**:
+    *   The game is played on a 2D tile-based grid.
+    *   The world should be procedurally generated based on a seed, containing different types of terrain like empty space, rock, valuable minerals, and rare gems. It should also have trees.
+    *   The world should feel like a cross-section of an asteroid.
+
+2.  **Colonists**:
+    *   The player starts with a small number of autonomous colonists.
+    *   Colonists have basic needs, such as **energy** (replenished by resting in beds), **hunger** (replenished by eating food), and **boredom** (reduced through recreation).
+    *   Colonists have a happiness/morale level, which affects their work efficiency.
+    *   Colonists should automatically find tasks to do based on player designations and their own needs. They should prioritize survival (satisfying critical needs) and then follow player orders.
+    *   Colonists can die from specific events.
+
+3.  **Player Interaction**:
+    *   The player's role is to guide the colony by designating tasks.
+    *   **Designation Tools**: The player can designate areas for:
+        *   **Mining**: Digging out rock (for stone), minerals, and gems.
+        *   **Chopping**: Cutting down trees for logs.
+        *   **Building**: Constructing floors (wood/stone), walls (wood/stone), doors, beds, storage containers, **hydroponics trays**, and **arcade machines**.
+        *   **Upgrading**: Upgrading existing wood structures to stone.
+    *   The player can inspect colonists and tiles to see their status.
+
+4.  **Resource Management**:
+    *   Colonists harvest resources (**stone**, minerals, gems, logs, **food**) from the environment.
+    *   Harvested resources are initially dropped on the ground. Colonists must haul them to designated storage containers.
+    *   Resources like logs, stone, and minerals are required for building structures.
+    *   The primary goal is to collect a certain amount of minerals to reach milestones.
+
+5.  **Game Loop & Time**:
+    *   The game runs on a tick-based system.
+    *   Implement a day/night cycle that affects the visuals.
+    *   Random events can occur daily (e.g., meteor showers revealing new minerals, morale boosts, new colonists arriving).
+
+### UI/UX Requirements:
+
+*   **Main View**: A canvas-based rendering of the game world.
+*   **HUD**: The Head-Up Display must be clean and informative, showing:
+    *   Stored resources (Minerals, Gems, Logs, **Stone**, **Food**).
+    *   Colony-wide average happiness and work efficiency.
+    *   Current day, time, and day/night indicator.
+    *   Current goal progress.
+*   **Control Panel**: A menu for selecting different actions (Inspect, Harvest, Build various structures).
+*   **Inspector Panel**: A context-aware panel that shows details of a selected colonist or a hovered tile.
+*   **Logs**:
+    *   A real-time game log showing important events and colonist actions.
+    *   A visual activity log/timeline for each colonist, showing what they've been doing recently.
+*   **Modals**:
+    *   An introductory modal to explain the game to new players.
+    *   Pop-up modals for significant random events.
+*   **Settings**: A way to import/export the game state as a JSON file and regenerate the world with a new seed.
+
+### Technical Requirements:
+
+*   Use React with functional components and hooks.
+*   Use TypeScript for static typing.
+*   Use Tailwind CSS for styling.
+*   The application should be a single `index.html` file that loads a bundled `index.tsx` module.
+*   Code should be well-organized, clean, readable, and performant.
+
+---
+
+## Progress So Far
+
+*   **V1: Initial Implementation**: The core game loop, procedural world generation, autonomous colonist AI (pathfinding, task selection), and basic UI panels were created in a single React component file.
+*   **V2: Code Refactoring & Modularization**: The single-file application has been successfully refactored into a more maintainable and scalable structure.
+    *   **Component-Based UI**: The UI has been broken down into reusable React components (`StatsPanel`, `BuildMenu`, `GameLogPanel`, etc.).
+    *   **Separation of Concerns**: Game logic, types, constants, and utilities were separated into dedicated files (`App.tsx`, `types.ts`, `constants.ts`, `utils/`).
+*   **V3: UI/UX & Simulation Enhancements**: Following the major refactor, a series of improvements were made to enhance gameplay and user experience.
+    *   **Advanced UI Panels**: The UI was significantly upgraded with the addition of a `CombinedInspectorPanel` (for colonists and tiles), a `ColonistQuickSelectPanel`, and a visual `ColonistWorkLogPanel` timeline.
+    *   **Deeper Simulation**: Core mechanics were expanded to include a `Happiness` system, which directly impacts colony-wide `Work Efficiency`. A full day/night cycle with time tracking was implemented, along with a basic random event system and tree regrowth mechanics.
+    *   **Quality of Life**: Features like a JSON-based save/load system and an "Unstuck Colonists" utility were added.
+*   **v0.10.0: Deepening the Simulation & Narrative AI**: A major feature update to enhance the core simulation and integrate dynamic storytelling.
+    *   **Expanded Needs System**: Introduced a more complex colonist needs system, adding **Hunger** and **Boredom**.
+    *   **New Structures & AI**: Added **Hydroponics Trays** and **Arcade Machines**, with corresponding AI behaviors for colonists to autonomously manage their needs. The core AI logic for task prioritization was significantly improved.
+    *   **Gemini-Powered Narrative**:
+        *   **World Generation:** The game now starts by calling the Gemini API to generate a unique colony name, asteroid designation, colonist names, and backstories based on a deep sci-fi theme (inspired by 3I/ATLAS).
+        *   **Dynamic Chronicle:** Gemini periodically writes new entries to a "Colony Chronology" log, acting as a "god-in-the-machine" narrator that reacts to the player's progress and the colonists' actions.
+    *   **UI Overhaul**: The UI was re-architected to ensure all critical information (especially activity logs) is always visible.
+*   **Current State**: The game's core mechanics are stable, and the Gemini-powered narrative system is fully integrated. A new **Stone** resource has been added for construction. The focus is shifting to adding deeper consequences and more complex, AI-driven events.
+    *   **AI Debugging & Tuning:** Added metrics to track colonist "stuck" states and AI resets, providing valuable data for fine-tuning behavior.
+    *   **Improved Pathfinding & UI Stability:** The colonist pathfinding algorithm has been updated to treat other colonists as temporary obstacles, significantly reducing traffic jams. Multiple UI layout bugs related to panel resizing have been fixed, resulting in a more stable interface.
+</file>
+<file path="index.html">
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Asteroid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'VT323', monospace; letter-spacing: 0.05em; }
+      /* For a crisper pixel font look */
+      canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "@google/genai": "https://esm.run/@google/genai"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-900 text-lg">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
+</file>
+<file path="index.tsx">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+
+</file>
+<file path="metadata.json">
+{
+  "name": "project A_V2",
+  "description": "A simulation game where you manage a colony of survivors on a desolate asteroid. Guide your autonomous colonists by designating tasks like mining and building to ensure their survival and prosperity against the harshness of space.",
+  "requestFramePermissions": []
+}
+</file>
+<file path="package.json">
+{
+  "name": "project-a_v2",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "@google/genai": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
+
+</file>
+<file path="README.md">
+# Project Asteroid
+
+![Project Asteroid Gameplay](https://storage.googleapis.com/project-asteroid-public/project-asteroid-screenshot.png)
+
+A colony simulation game where you manage a group of survivors on a desolate asteroid. Guide your autonomous colonists by designating tasks like mining and building to ensure their survival and prosperity against the harshness of space.
+
+This project was built with the assistance of Google's Gemini.
+
+## Features
+
+-   **Autonomous Colonists**: Your colonists think for themselves! They will work, eat, play, and rest based on their needs and your designated tasks.
+-   **Procedural Generation**: Every new game creates a unique asteroid based on a seed, offering endless replayability.
+-   **Resource Management**: Mine rock for stone, valuable minerals, and rare gems. Chop trees for lumber. Grow and harvest food.
+-   **Building System**: Design and build your base with floors (wood/stone), walls (wood/stone), doors, beds, storage units, hydroponics trays, and even arcade machines. Upgrade wood structures to stone for better durability.
+-   **Dynamic Events**: Face random events like meteor showers, morale shifts, and the arrival of new survivors.
+-   **Day/Night Cycle**: A simple visual day/night cycle.
+-   **Goals & Milestones**: Prove your colony is sustainable by reaching resource collection milestones.
+-   **Save/Load System**: Export your game progress to a JSON file and import it later to continue.
+-   **AI Narrator**: A dynamic "Colony Chronicle" powered by Google's Gemini API generates a unique story for your colony based on its progress and struggles.
+-   **Smarter Colonists**: Advanced pathfinding helps colonists navigate around each other to avoid getting stuck.
+
+## How to Play
+
+1.  **The Start**: You begin with 3 colonists and a pre-designated shelter area. They will automatically start working on designated tasks.
+2.  **Your Role**: You are the overseer. Your job is to designate tasks to ensure the colony's survival and growth.
+3.  **Designate Tasks**: Use the **Controls** panel to select an action.
+    -   **Harvest**: Designate rock, minerals, gems, or trees to be harvested. Click and drag to select a large area.
+    -   **Build**: Select a structure to build (e.g., Stone Floor, Wood Wall, Bed) and designate where you want it.
+    -   **Upgrade**: Select an upgrade action (e.g., Upg. Floor) to convert existing wood structures to stone.
+4.  **Manage Needs**: Keep an eye on your colonists' happiness, energy, hunger, and boredom. Building beds, hydroponics trays for food, and arcade machines for fun is crucial for a healthy and efficient colony.
+5.  **Expand**: As you gather resources, expand your base, build more facilities, and strive to meet the collection goals.
+
+## Controls
+
+-   **Left-Click**:
+    -   In **Inspect** mode: Select a colonist or a tile.
+    -   In **Designate** mode: Click and drag to create a designation area. Click a single tile to designate it. Clicking an existing designation will cancel it.
+-   **Mouse Hover**: In **Inspect** mode, hover over a tile to see its details in the Inspector Panel.
+
+## Technology Stack
+
+-   **Frontend**: React 19, TypeScript
+-   **AI**: Google Gemini
+-   **Styling**: Tailwind CSS
+-   **Graphics**: HTML5 Canvas API
+
+## Project Structure
+
+The project is organized into a modular structure for better maintainability.
+
+```
+/
+├── components/         # Reusable React UI components
+├── utils/              # Helper functions (pathfinding, noise, etc.)
+├── App.tsx             # Main game component with core logic
+├── index.tsx           # React app entry point
+├── constants.ts        # Game constants (balancing, colors)
+├── types.ts            # TypeScript type definitions
+├── index.html          # Main HTML file
+└── README.md           # This file
+```
+
+## Contributing
+
+Contributions are welcome! If you have ideas for new features, bug fixes, or improvements, feel free to open an issue or submit a pull request.
+
+## License
+
+This project is licensed under the MIT License.
+</file>
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ],
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}
+</file>
+<file path="types.ts">
+
+
+export enum TileType {
+  EMPTY = 'EMPTY',
+  ROCK = 'ROCK',
+  MINERAL = 'MINERAL',
+  GEM = 'GEM',
+  DROPPED_MINERAL = 'DROPPED_MINERAL',
+  DROPPED_GEM = 'DROPPED_GEM',
+  STORAGE = 'STORAGE',
+  BED = 'BED',
+  WOOD_FLOOR = 'WOOD_FLOOR',
+  STONE_FLOOR = 'STONE_FLOOR',
+  TREE = 'TREE',
+  DROPPED_LOG = 'DROPPED_LOG',
+  WOOD_WALL = 'WOOD_WALL',
+  STONE_WALL = 'STONE_WALL',
+  DOOR = 'DOOR',
+  SAPLING = 'SAPLING',
+  HYDROPONICS_TRAY = 'HYDROPONICS_TRAY',
+  ARCADE_MACHINE = 'ARCADE_MACHINE',
+  DROPPED_FOOD = 'DROPPED_FOOD',
+  DROPPED_STONE = 'DROPPED_STONE'
+}
+
+export enum DesignationType {
+  MINE = 'MINE',
+  BUILD_WOOD_FLOOR = 'BUILD_WOOD_FLOOR',
+  CHOP = 'CHOP',
+  BUILD_WOOD_WALL = 'BUILD_WOOD_WALL',
+  BUILD_DOOR = 'BUILD_DOOR',
+  HARVEST = 'HARVEST',
+  BUILD_BED = 'BUILD_BED',
+  BUILD_STORAGE = 'BUILD_STORAGE',
+  BUILD_HYDROPONICS = 'BUILD_HYDROPONICS',
+  BUILD_ARCADE = 'BUILD_ARCADE',
+  BUILD_STONE_FLOOR = 'BUILD_STONE_FLOOR',
+  BUILD_STONE_WALL = 'BUILD_STONE_WALL',
+  UPGRADE_TO_STONE_FLOOR = 'UPGRADE_TO_STONE_FLOOR',
+  UPGRADE_TO_STONE_WALL = 'UPGRADE_TO_STONE_WALL',
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Tile extends Point {
+  type: TileType;
+  regrowthTicks: number;
+  growth?: number;
+}
+
+export type Grid = Tile[][];
+export type Designations = (DesignationType | null)[][];
+
+export type CarryingType = TileType.MINERAL | TileType.GEM | 'LOGS' | 'FOOD' | 'STONE' | null;
+
+export type ColonistRole = 'COOK' | 'BUILDER' | 'MINER' | 'HAULER';
+
+export interface Colonist extends Point {
+  id: string;
+  name: string;
+  backstory: string;
+  task: string;
+  target: Point | null;
+  path: Point[];
+  workTicks: number;
+  carrying: CarryingType;
+  carryingAmount?: number;
+  energy: number;
+  happiness: number;
+  patience: number;
+  hunger: number;
+  boredom: number;
+  stuckTicks: number;
+  roles: ColonistRole[];
+  lastPosition?: Point;
+  criticallyLowEnergyTicks: number;
+  criticallyLowHungerTicks: number;
+  softResetCount: number;
+  hardResetCount: number;
+}
+
+export interface GameEvent {
+  id: string;
+  duration: number;
+  message: string;
+  type: string;
+  pauses: boolean;
+}
+
+export interface GameLogItem {
+  msg: string;
+  type: 'standard' | 'event';
+}
+
+export interface ChronologyEntry {
+    timestamp: string;
+    message: string;
+}
+
+export interface ColonistLogEntry {
+    task: string;
+    carrying: CarryingType;
+}
+
+export type ColonistLog = (ColonistLogEntry | null)[];
+
+export type InteractionMode = 'INSPECT' | 'DESIGNATE';
+
+export interface PriorityTask {
+  id: string;
+  x: number;
+  y: number;
+  type: DesignationType;
+}
+
+export interface SimulationSettings {
+  allowNewColonists: boolean;
+}
+</file>
+<file path="vite.config.ts">
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, '.', '');
+    return {
+      plugins: [react()],
+      define: {
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, '.'),
+        }
+      }
+    };
+});
+
+</file>
